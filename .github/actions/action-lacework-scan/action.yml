@@ -23,9 +23,6 @@ inputs:
   save-results-in-lacework:
     description: 'Save results to Lacework. (Default: false)'
     default: 'false'
-  debug-mode:
-    description: 'Set to "true" to enable debug mode. It generates extra artifacts with partial results. (Default: false)'
-    default: 'false'
 
 outputs:
   result-json:
@@ -62,9 +59,9 @@ runs:
       IMAGE_TAG: ${{ steps.prepare-input.outputs.image-tag }}
       SCAN_LIBRARY_PACKAGES: true
       SAVE_RESULTS_IN_LACEWORK: ${{ inputs.save-results-in-lacework }}
-      SAVE_BUILD_REPORT: ${{ inputs.debug-mode }}
+      SAVE_BUILD_REPORT: ${{ env.ACTIONS_STEP_DEBUG }}
       BUILD_REPORT_FILE_NAME: ${{ steps.prepare-input.outputs.safe-image-id }}.lacework-report.html
-      LW_SCANNER_ENABLE_DEBUGGING: ${{ inputs.debug-mode }}
+      LW_SCANNER_ENABLE_DEBUGGING: ${{ env.ACTIONS_STEP_DEBUG }}
 
 
   - name: Process result
@@ -112,14 +109,14 @@ runs:
       echo 'EOF' >> $GITHUB_OUTPUT
 
   - name: Print result json (debug mode)
-    if: inputs.debug-mode == 'true'
+    if: env.ACTIONS_STEP_DEBUG == 'true'
     shell: bash
     run: |
       echo "*** RESULT JSON:"
       cat ${{ steps.prepare-input.outputs.safe-image-id }}.result.json
 
   - name: Upload results to artifacts (debug mode)
-    if: inputs.debug-mode == 'true'
+    if: env.ACTIONS_STEP_DEBUG == 'true'
     uses: actions/upload-artifact@v3
     with:
       name: ${{ steps.prepare-input.outputs.safe-image-id }}.lacework-debuginfo

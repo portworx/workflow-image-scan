@@ -47,7 +47,8 @@ jobs:
         docker-password: ${{ secrets.DOCKER_PASSWORD }}
         lw-account-name: ${{ secrets.LW_ACCOUNT_NAME }}
         lw-access-token: ${{ secrets.LW_ACCESS_TOKEN }}
-        debug-mode: false
+      env:
+        ACTIONS_STEP_DEBUG: ${{ secrets.ACTIONS_STEP_DEBUG }}
 
     - name: Prepare the result for saving
       id: prepare-save
