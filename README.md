@@ -4,10 +4,10 @@
 
 The main goal this workflow is to:
 
-1. call Lacework scanner action ([lacework/lw-scanner-action](https://github.com/lacework/lw-scanner-action)) for the
-   input images,
-2. builds a scan result summary section and adds it to the end of the Actions run page,
-3. adds a comment into the pull request containing the scan results in short form.
+1. Call Lacework scanner action ([lacework/lw-scanner-action](https://github.com/lacework/lw-scanner-action)) for the
+   input images.
+2. Build a scan result summary section and add it to the end of the Actions run page.
+3. Add a comment into the pull request containing the scan results in short form.
 
 ## Usage
 
@@ -22,7 +22,8 @@ jobs:
     secrets: inherit
 ```
 
-or with explicit secrets:
+or with secrets explicitly defined if the caller workflow is not from a Portworx repo 
+([doc](https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idsecretsinherit)):
 
 ```yml
 jobs:
@@ -62,7 +63,7 @@ jobs:
 
 ## Outputs
 
-Image scan results visualized in:
-
-1. job summary section,
-2. pull request comment.
+* Image scan results are:
+  * visualized in the job summary section,
+  * visualized in a pull request comment (if the scan result is different from the previous),
+  * uploaded as artifacts into workflow run page as separate JSON files per image (e.g. `docker.io-portworx-pds-base-config-ubi8-a2aee61.lacework-result.json`).
