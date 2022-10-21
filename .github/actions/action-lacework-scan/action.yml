@@ -1,0 +1,130 @@
+name: 'Run Lacework image scan'
+description: 'Scan the provided image with Lacework scan tool and return a JSON with the results.'
+
+inputs:
+  image:
+    description: 'Full URL of the image to scan.'
+    required: true
+  docker-username:
+    description: 'Docker username.'
+    required: true
+  docker-password:
+    description: 'Docker password.'
+    required: true
+  lw-account-name:
+    description: 'Lacework account name.'
+    required: true
+  lw-access-token:
+    description: 'Lacework access token.'
+    required: true
+  severity-filter:
+    description: 'Specify severities of CVEs to be included in the result, in CSV format, e.g. "Critical,High,Medium,Low,Info". (Default: "Critical,High")'
+    default: 'Critical,High'
+  save-results-in-lacework:
+    description: 'Save results to Lacework. (Default: false)'
+    default: 'false'
+  debug-mode:
+    description: 'Set to "true" to enable debug mode. It generates extra artifacts with partial results. (Default: false)'
+    default: 'false'
+
+outputs:
+  result-json:
+    description: 'Lacework scan result in JSON format.'
+    value: ${{ steps.process-result.outputs.result-json }}
+
+runs:
+  using: "composite"
+  steps:
+  - name: Prepare input
+    id: prepare-input
+    shell: bash
+    run: |
+      echo "image-name=$(echo "${{ inputs.image }}" | cut -d: -f1)" >> $GITHUB_OUTPUT
+      echo "image-tag=$(echo "${{ inputs.image }}" | cut -d: -f2)" >> $GITHUB_OUTPUT
+      echo "safe-image-id=$(echo "${{ inputs.image }}" | sed 's/[^a-zA-Z0-9.-]/-/g')" >> $GITHUB_OUTPUT
+
+  - name: Docker login
+    uses: docker/login-action@v2
+    with:
+      username: ${{ inputs.docker-username }}
+      password: ${{ inputs.docker-password }}
+
+  - name: Docker pull
+    shell: bash
+    run: docker pull ${{ inputs.image }}
+
+  - name: Scan
+    uses: lacework/lw-scanner-action@v1.1.1
+    with:
+      LW_ACCOUNT_NAME: ${{ inputs.lw-account-name }}
+      LW_ACCESS_TOKEN: ${{ inputs.lw-access-token }}
+      IMAGE_NAME: ${{ steps.prepare-input.outputs.image-name }}
+      IMAGE_TAG: ${{ steps.prepare-input.outputs.image-tag }}
+      SCAN_LIBRARY_PACKAGES: true
+      SAVE_RESULTS_IN_LACEWORK: ${{ inputs.save-results-in-lacework }}
+      SAVE_BUILD_REPORT: ${{ inputs.debug-mode }}
+      BUILD_REPORT_FILE_NAME: ${{ steps.prepare-input.outputs.safe-image-id }}.lacework-report.html
+      LW_SCANNER_ENABLE_DEBUGGING: ${{ inputs.debug-mode }}
+
+
+  - name: Process result
+    id: process-result
+    shell: bash
+    run: |
+      fullJson=$(find ./evaluations -name 'evaluation_*.json' 2>/dev/null)
+      echo "Parsing result from: $fullJson"
+
+      # Check image is the same.
+      imageName=$(cat $fullJson | jq -r '.cve.image.image_info.repository')
+      imageTag=$(cat $fullJson | jq -r '.cve.image.image_info.tags[0]')
+      if [ "$imageName" != "${{ steps.prepare-input.outputs.image-name }}" ] || [ "$imageTag" != "${{ steps.prepare-input.outputs.image-tag }}" ]; then
+        >&2 echo "Image mismatch: ${imageName}:${imageTag} != ${{ steps.prepare-input.outputs.image-name }}:${{ steps.prepare-input.outputs.image-tag }}"
+        exit 1
+      fi
+      
+      # Filter JSON by deleting vulnerabilities with unwanted severities.
+      filteredJson="${{ steps.prepare-input.outputs.safe-image-id }}.filtered.json"
+      jq 'del(.cve.image.image_layers[].packages[].vulnerabilities[] | select(.severity != "Critical" and  .severity != "High" ))
+          | del(.cve.image.image_layers[].packages[] | select(.vulnerabilities == []))
+          | del(.cve.image.image_layers[] | select(.packages == []))' \
+        $fullJson > $filteredJson
+      
+      # Convert JSON into a simplified JSON.
+      resultJson="${{ steps.prepare-input.outputs.safe-image-id }}.result.json"
+      jq '{
+            image: "${{ inputs.image }}",
+            stats: {
+              Critical: { total: .cve.critical_vulnerabilities, fixable: .cve.critical_fixable_vulnerabilities },
+              High: { total: .cve.high_vulnerabilities, fixable: .cve.high_fixable_vulnerabilities },
+              Medium: { total: .cve.medium_vulnerabilities, fixable: .cve.medium_fixable_vulnerabilities },
+              Low: { total: .cve.low_vulnerabilities, fixable: .cve.low_fixable_vulnerabilities },
+              Info: { total: .cve.info_vulnerabilities, fixable: .cve.info_fixable_vulnerabilities }
+            },
+            includedSeverities: [ "Critical", "High" ], 
+            cves: [.cve.image.image_layers[].packages[] | . as $p | .vulnerabilities[]
+              | {cveId: .name, severity: .severity, package: $p.name, currentVersion: $p.version, fixVersion: .fix_version, status: .status, link: .link}]
+              | sort_by(.severity, .cveId)
+          }' $filteredJson > $resultJson
+      
+      # Set multiline output.
+      echo 'result-json<<EOF' >> $GITHUB_OUTPUT
+      cat $resultJson >> $GITHUB_OUTPUT
+      echo 'EOF' >> $GITHUB_OUTPUT
+
+  - name: Print result json (debug mode)
+    if: inputs.debug-mode == 'true'
+    shell: bash
+    run: |
+      echo "*** RESULT JSON:"
+      cat ${{ steps.prepare-input.outputs.safe-image-id }}.result.json
+
+  - name: Upload results to artifacts (debug mode)
+    if: inputs.debug-mode == 'true'
+    uses: actions/upload-artifact@v3
+    with:
+      name: ${{ steps.prepare-input.outputs.safe-image-id }}.lacework-debuginfo
+      path: |
+        ${{ steps.prepare-input.outputs.safe-image-id }}.lacework-report.html
+        ${{ steps.prepare-input.outputs.safe-image-id }}.result.json
+        ./evaluations/**/evaluation_*.json
+

@@ -1,0 +1,202 @@
+name: Image Scan
+
+on:
+  workflow_call:
+    inputs:
+      images:
+        required: true
+        type: string
+    secrets:
+      DOCKER_USERNAME:
+        required: true
+      DOCKER_PASSWORD:
+        required: true
+      LW_ACCOUNT_NAME:
+        required: true
+      LW_ACCESS_TOKEN:
+        required: true
+
+jobs:
+  # Setup for matrix run.
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      imagesJson: ${{ steps.setup.outputs.imagesJson }}
+    steps:
+    - id: setup
+      run: |
+        imagesJson=$(echo '${{ inputs.images }}' | sed -e 's/^/["/' -e 's/ /","/g' -e 's/$/"]/')
+        echo "imagesJson=$imagesJson" >> $GITHUB_OUTPUT
+
+  # Run Lacework scan for all images.
+  lacework-scan:
+    needs: [ setup ]
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 4
+      matrix:
+        image: ${{fromJson(needs.setup.outputs.imagesJson)}}
+    steps:
+    - name: Call Lacework scan
+      id: run-scan
+      # TODO simon: remove branch ref before merge!
+      uses: portworx/workflow-image-scan/.github/actions/action-lacework-scan@jsimon/image-scan
+      with:
+        image: ${{ matrix.image }}
+        docker-username: ${{ secrets.DOCKER_USERNAME }}
+        docker-password: ${{ secrets.DOCKER_PASSWORD }}
+        lw-account-name: ${{ secrets.LW_ACCOUNT_NAME }}
+        lw-access-token: ${{ secrets.LW_ACCESS_TOKEN }}
+        debug-mode: false
+
+    - name: Prepare the result for saving
+      id: prepare-save
+      run: |
+        safeImageId=$(echo "${{ matrix.image }}" | sed 's/[^a-zA-Z0-9.-]/-/g')
+        fileName=${safeImageId}.lacework-result.json
+        echo '${{ steps.run-scan.outputs.result-json }}' > $fileName
+        echo "file-name=$fileName" >> $GITHUB_OUTPUT
+
+    - name: Save the result as artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ steps.prepare-save.outputs.file-name }}
+        path: ${{ steps.prepare-save.outputs.file-name }}
+        if-no-files-found: error
+
+  # Evaluate scan results.
+  evaluate-results:
+    needs: [ lacework-scan ]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Download all results from artifacts
+      uses: actions/download-artifact@v3
+
+    - name: Build and set job summary
+      shell: bash
+      run: |
+        lwResultFiles="$(find . -type f -name '*.lacework-result.json' | sort)"
+
+        echo "## <a name=\"scan-results\"></a>Lacework scan results" >> $GITHUB_STEP_SUMMARY
+        for jsonFile in $lwResultFiles; do
+          image=$(jq -r '.image' $jsonFile)
+          cveC=$(jq -r '.stats.Critical.total' $jsonFile)
+          cveH=$(jq -r '.stats.High.total' $jsonFile)
+          cveM=$(jq -r '.stats.Medium.total' $jsonFile)
+          cveL=$(jq -r '.stats.Low.total' $jsonFile)
+          cveI=$(jq -r '.stats.Info.total' $jsonFile)
+        
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### $image" >> $GITHUB_STEP_SUMMARY
+
+          # Highlight number in table cell.
+          _hln() {
+            if [ ${1} -gt 0 ]; then
+              echo "**${1}** :x:"
+            else
+              echo "${1} :heavy_check_mark:"
+            fi
+          }
+
+          echo "| Critical | High | Medium | Low | Info |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|---|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| $(_hln $cveC) | $(_hln $cveH) | $cveM | $cveL | $cveI |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Print CVE table (if not empty).
+          cveCount=$(jq -r '.cves | length' $jsonFile)
+          if [ $cveCount -gt 0 ]; then
+            echo "|CVE|Severity|Package|Current version|Fix version| Status|" >> $GITHUB_STEP_SUMMARY
+            echo "|---|---|---|---|---|---|" >> $GITHUB_STEP_SUMMARY
+            for row in $(jq -r '.cves[] | @base64' $jsonFile); do
+              row=$(echo ${row} | base64 --decode)
+              _jq() {
+                echo $row | jq -r ${1}
+              }
+              echo "| [$(_jq '.cveId')]($(_jq '.link')) | $(_jq '.severity') | $(_jq '.package') | $(_jq '.currentVersion')|  | $(_jq '.status') |" >> $GITHUB_STEP_SUMMARY
+            done
+          fi
+        done
+
+    - name: Build PR comment
+      if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize')
+      id: build-pr-comment
+      shell: bash
+      run: |
+        lwResultFiles="$(find . -type f -name '*.lacework-result.json' | sort)"
+        
+        # Collect overall status.
+        lwStatusIcon=":green_circle:"
+        for jsonFile in $lwResultFiles; do
+          cveC=$(jq -r '.stats.Critical.total' $jsonFile)
+          cveH=$(jq -r '.stats.High.total' $jsonFile)
+          if [ $cveC -gt 0 ] || [ $cveH -gt 0 ]; then
+            lwStatusIcon=":red_circle:"
+            break
+          fi
+        done
+
+        c="### ${lwStatusIcon}&nbsp; Lacework scan results:"
+        c="${c}\n| Image | Critical | High | Medium | Low | Info |"
+        c="${c}\n|---|---|---|---|---|---|"
+
+        # Highlight number in table cell.
+        _hln() {
+          if [ ${1} -gt 0 ]; then
+            echo "**${1}** :x:"
+          else
+            echo "${1} :heavy_check_mark:"
+          fi
+        }
+
+        for jsonFile in $lwResultFiles; do
+          image=$(jq -r '.image' $jsonFile)
+          cveC=$(jq -r '.stats.Critical.total' $jsonFile)
+          cveH=$(jq -r '.stats.High.total' $jsonFile)
+          cveM=$(jq -r '.stats.Medium.total' $jsonFile)
+          cveL=$(jq -r '.stats.Low.total' $jsonFile)
+          cveI=$(jq -r '.stats.Info.total' $jsonFile)
+          c="${c}\n| ${image} | $(_hln $cveC) | $(_hln $cveH) | $cveM | $cveL | $cveI |"
+        done
+
+        runUrl="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#user-content-scan-results"
+        c="${c}\n\n<sup>[Go to job summary for more details...]($runUrl)</sup>"
+
+        # Set multiline output.
+        echo 'comment<<EOF' >> $GITHUB_OUTPUT
+        echo -e "$c" >> $GITHUB_OUTPUT
+        echo 'EOF' >> $GITHUB_OUTPUT
+
+    - name: Add PR comment (if content changed)
+      if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize')
+      uses: actions/github-script@v6
+      with:
+        retries: 3
+        retry-exempt-status-codes: 400,401
+        script: |
+          function removeLinks(body) {
+            return body.replace(/\]\(http[^)]+\)/gm, "](#)");
+          }
+
+          // Get the existing comments.
+          const {data: comments} = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.payload.number,
+          })
+
+          // Find last bot comment.
+          const lastBotComment = comments.slice().reverse().find(comment => comment.user.login === 'github-actions[bot]')
+
+          const newCommentBody = `${{ steps.build-pr-comment.outputs.comment }}`
+          if (!lastBotComment || removeLinks(newCommentBody)  !== removeLinks(lastBotComment.body)) {
+            // Add new comment.
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.number,
+              body: newCommentBody
+            })
+          } else {
+            console.log("No changes, nothing to do.")
+          }
