@@ -59,8 +59,6 @@ runs:
       IMAGE_TAG: ${{ steps.prepare-input.outputs.image-tag }}
       SCAN_LIBRARY_PACKAGES: true
       SAVE_RESULTS_IN_LACEWORK: ${{ inputs.save-results-in-lacework }}
-      SAVE_BUILD_REPORT: ${{ env.ACTIONS_STEP_DEBUG }}
-      BUILD_REPORT_FILE_NAME: ${{ steps.prepare-input.outputs.safe-image-id }}.lacework-report.html
       LW_SCANNER_ENABLE_DEBUGGING: ${{ env.ACTIONS_STEP_DEBUG }}
 
 
@@ -114,14 +112,3 @@ runs:
     run: |
       echo "*** RESULT JSON:"
       cat ${{ steps.prepare-input.outputs.safe-image-id }}.result.json
-
-  - name: Upload results to artifacts (debug mode)
-    if: env.ACTIONS_STEP_DEBUG == 'true'
-    uses: actions/upload-artifact@v3
-    with:
-      name: ${{ steps.prepare-input.outputs.safe-image-id }}.lacework-debuginfo
-      path: |
-        ${{ steps.prepare-input.outputs.safe-image-id }}.lacework-report.html
-        ${{ steps.prepare-input.outputs.safe-image-id }}.result.json
-        ./evaluations/**/evaluation_*.json
-
