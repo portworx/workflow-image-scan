@@ -11,6 +11,8 @@ The main goal this workflow is to:
 
 ## Usage
 
+### With inherited secrets
+
 ```yml
 jobs:
   # ...
@@ -22,8 +24,17 @@ jobs:
     secrets: inherit
 ```
 
-or with secrets explicitly defined if the caller workflow is not from a Portworx repo 
-([doc](https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idsecretsinherit)):
+Prerequisites to use:
+
+* The caller repository must be under the Portworx organization.
+* The caller repository must have added all the secrets defined in the [Inputs](#inputs) section below (using the same
+  names).
+
+### With explicit secrets
+
+The caller cannot use the `implicit` keyword if the caller workflow is not from the Portworx organization
+([doc](https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idsecretsinherit)).
+In this case the secrets must be defined explicitly:
 
 ```yml
 jobs:
@@ -38,7 +49,7 @@ jobs:
       LW_ACCESS_TOKEN: ${{ secrets.LW_ACCESS_TOKEN }}
 ```
 
-## Inputs
+## <a id="inputs"></a>Inputs
 
 ```yml
     inputs:
@@ -64,6 +75,7 @@ jobs:
 ## Outputs
 
 * Image scan results are:
-  * visualized in the job summary section,
-  * visualized in a pull request comment (if the scan result is different from the previous),
-  * uploaded as artifacts into workflow run page as separate JSON files per image (e.g. `docker.io-portworx-pds-base-config-ubi8-a2aee61.lacework-result.json`).
+    * visualized in the job summary section,
+    * visualized in a pull request comment (if the scan result is different from the previous),
+    * uploaded as artifacts into workflow run page as separate JSON files per image (
+      e.g. `docker.io-portworx-pds-base-config-ubi8-a2aee61.lacework-result.json`).
