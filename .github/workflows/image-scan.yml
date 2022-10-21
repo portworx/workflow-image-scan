@@ -3,16 +3,21 @@ name: Image Scan
 on:
   workflow_call:
     inputs:
+      # Space-separated list of images.
       images:
         required: true
         type: string
     secrets:
+      # Docker username.
       DOCKER_USERNAME:
         required: true
+      # Docker password.
       DOCKER_PASSWORD:
         required: true
+      # Lacework account name.
       LW_ACCOUNT_NAME:
         required: true
+      # Lacework access token.
       LW_ACCESS_TOKEN:
         required: true
 
