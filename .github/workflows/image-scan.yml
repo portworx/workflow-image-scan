@@ -174,8 +174,11 @@ jobs:
         retries: 3
         retry-exempt-status-codes: 400,401
         script: |
-          function removeLinks(body) {
-            return body.replace(/\]\(http[^)]+\)/gm, "](#)");
+          function removeDynamicValues(body) {
+            // remove links and dynamic image tag hashes
+            return body
+               .replace(/\]\(http[^)]+\)/gm, "](#)")
+               .replace(/(docker\.io\/[^ ]+)-\w{7}/gm, "$1-#######")
           }
 
           // Get the existing comments.
@@ -189,7 +192,7 @@ jobs:
           const lastBotComment = comments.slice().reverse().find(comment => comment.user.login === 'github-actions[bot]')
 
           const newCommentBody = `${{ steps.build-pr-comment.outputs.comment }}`
-          if (!lastBotComment || removeLinks(newCommentBody)  !== removeLinks(lastBotComment.body)) {
+          if (!lastBotComment || removeDynamicValues(newCommentBody)  !== removeDynamicValues(lastBotComment.body)) {
             // Add new comment.
             await github.rest.issues.createComment({
               owner: context.repo.owner,
