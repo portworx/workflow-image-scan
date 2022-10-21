@@ -136,9 +136,9 @@ jobs:
           fi
         done
 
-        c="### ${lwStatusIcon}&nbsp; Lacework scan results:"
-        c="${c}\n| Image | Critical | High | Medium | Low | Info |"
-        c="${c}\n|---|---|---|---|---|---|"
+        comment="### ${lwStatusIcon}&nbsp; Lacework scan results:"
+        comment="${comment}\n| Image | Critical | High | Medium | Low | Info |"
+        comment="${comment}\n|---|---|---|---|---|---|"
 
         # Highlight number in table cell.
         _hln() {
@@ -156,15 +156,15 @@ jobs:
           cveM=$(jq -r '.stats.Medium.total' $jsonFile)
           cveL=$(jq -r '.stats.Low.total' $jsonFile)
           cveI=$(jq -r '.stats.Info.total' $jsonFile)
-          c="${c}\n| ${image} | $(_hln $cveC) | $(_hln $cveH) | $cveM | $cveL | $cveI |"
+          comment="${comment}\n| ${image} | $(_hln $cveC) | $(_hln $cveH) | $cveM | $cveL | $cveI |"
         done
 
         runUrl="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#user-content-scan-results"
-        c="${c}\n\n<sup>[Go to job summary for more details...]($runUrl)</sup>"
+        comment="${comment}\n\n<sup>[Go to job summary for more details...]($runUrl)</sup>"
 
         # Set multiline output.
         echo 'comment<<EOF' >> $GITHUB_OUTPUT
-        echo -e "$c" >> $GITHUB_OUTPUT
+        echo -e "$comment" >> $GITHUB_OUTPUT
         echo 'EOF' >> $GITHUB_OUTPUT
 
     - name: Add PR comment (if content changed)
@@ -192,7 +192,7 @@ jobs:
           const lastBotComment = comments.slice().reverse().find(comment => comment.user.login === 'github-actions[bot]')
 
           const newCommentBody = `${{ steps.build-pr-comment.outputs.comment }}`
-          if (!lastBotComment || removeDynamicValues(newCommentBody)  !== removeDynamicValues(lastBotComment.body)) {
+          if (!lastBotComment || removeDynamicValues(newCommentBody) !== removeDynamicValues(lastBotComment.body)) {
             // Add new comment.
             await github.rest.issues.createComment({
               owner: context.repo.owner,
