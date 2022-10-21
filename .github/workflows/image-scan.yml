@@ -113,7 +113,7 @@ jobs:
               _jq() {
                 echo $row | jq -r ${1}
               }
-              echo "| [$(_jq '.cveId')]($(_jq '.link')) | $(_jq '.severity') | $(_jq '.package') | $(_jq '.currentVersion')|  | $(_jq '.status') |" >> $GITHUB_STEP_SUMMARY
+              echo "| [$(_jq '.cveId')]($(_jq '.link')) | $(_jq '.severity') | $(_jq '.package') | $(_jq '.currentVersion') | $(_jq '.fixVersion') | $(_jq '.status') |" >> $GITHUB_STEP_SUMMARY
             done
           fi
         done
