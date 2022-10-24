@@ -44,8 +44,7 @@ jobs:
     steps:
     - name: Call Lacework scan
       id: run-scan
-      # TODO simon: remove branch ref before merge!
-      uses: portworx/workflow-image-scan/.github/actions/action-lacework-scan@jsimon/image-scan
+      uses: portworx/workflow-image-scan/.github/actions/action-lacework-scan
       with:
         image: ${{ matrix.image }}
         docker-username: ${{ secrets.DOCKER_USERNAME }}
