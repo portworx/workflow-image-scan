@@ -32,7 +32,7 @@ Prerequisites to use:
 
 ### With explicit secrets
 
-The caller cannot use the `implicit` keyword if the caller workflow is not from the Portworx organization
+The caller cannot use the `inherit` keyword if the caller workflow is not from the Portworx organization
 ([doc](https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idsecretsinherit)).
 In this case the secrets must be defined explicitly:
 
