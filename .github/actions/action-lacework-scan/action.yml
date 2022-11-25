@@ -96,9 +96,9 @@ runs:
               Info: { total: .cve.info_vulnerabilities, fixable: .cve.info_fixable_vulnerabilities }
             },
             includedSeverities: [ "Critical", "High" ], 
-            cves: [.cve.image.image_layers[].packages[] | . as $p | .vulnerabilities[]
-              | {cveId: .name, severity: .severity, package: $p.name, currentVersion: $p.version, fixVersion: .fix_version, status: .status, link: .link}]
-              | sort_by(.severity, .cveId)
+            vulnerabilities: [.cve.image.image_layers[].packages[] | . as $p | .vulnerabilities[]
+              | {vulnId: .name, severity: .severity, package: $p.name, currentVersion: $p.version, fixVersion: .fix_version, status: .status, link: .link}]
+              | sort_by(.severity, .vulnId)
           }' $filteredJson > $resultJson
       
       # Set multiline output.
