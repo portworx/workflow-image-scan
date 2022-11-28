@@ -26,9 +26,6 @@ inputs:
   aqua-image:
     description: 'Full URI of the aqua scanner image used for scanning.'
     required: true
-  image-registry:
-    description: 'Image registry where the image to scan is stored.'
-    required: true
   severity-filter:
     description: 'Specify severities of CVEs to be included in the result, in CSV format, e.g. "Critical,High,Medium,Low,Info". (Default: "Critical,High")'
     default: 'critical,high'
@@ -45,7 +42,8 @@ runs:
       id: prepare-input
       shell: bash
       run: |
-        echo "image-name-no-repo=$(echo "${{ inputs.image }}" | cut -d: -f1 | cut -d/ -f2-)" >> $GITHUB_OUTPUT
+        echo "image-name-no-registry=$(echo "${{ inputs.image }}" | cut -d: -f1 | cut -d/ -f2-)" >> $GITHUB_OUTPUT
+        echo "image-registry=$(echo "${{ inputs.image }}" | cut -d/ -f1 )" >> $GITHUB_OUTPUT
         echo "image-tag=$(echo "${{ inputs.image }}" | cut -d: -f2)" >> $GITHUB_OUTPUT
         echo "safe-image-id=$(echo "${{ inputs.image }}" | sed 's/[^a-zA-Z0-9.-]/-/g')" >> $GITHUB_OUTPUT
     
@@ -65,7 +63,7 @@ runs:
     - name: Docker login
       uses: docker/login-action@v2
       with:
-        registry: ${{ inputs.image-registry }}
+        registry: ${{ steps.prepare-input.outputs.image-registry }}
         username: ${{ inputs.docker-username }}
         password: ${{ inputs.docker-password }}
 
@@ -79,7 +77,7 @@ runs:
         mkdir -p evaluations
         docker run -v "$PWD/evaluations:/evaluations" "${{ inputs.aqua-image }}" \
         scan --token "${{ inputs.aqua-access-token }}" --host "${{ inputs.aquasec-server-url }}" \
-        --registry "${{ inputs.image-registry }}" --show-negligible --jsonfile /evaluations/evaluation_"${{ steps.prepare-input.outputs.safe-image-id }}".json "${{ steps.prepare-input.outputs.image-name-no-repo }}:${{ steps.prepare-input.outputs.image-tag }}"
+        --registry "${{ steps.prepare-input.outputs.image-registry }}" --show-negligible --jsonfile /evaluations/evaluation_"${{ steps.prepare-input.outputs.safe-image-id }}".json "${{ steps.prepare-input.outputs.image-name-no-registry }}:${{ steps.prepare-input.outputs.image-tag }}"
 
     - name: Process result
       id: process-result
@@ -90,8 +88,8 @@ runs:
         
         # Check image is the same.
         image=$(cat $fullJson | jq -r '.image' | cut -d/ -f2-)
-        if [ "$image" != "${{ steps.prepare-input.outputs.image-name-no-repo }}:${{ steps.prepare-input.outputs.image-tag }}" ]; then
-          >&2 echo "Image mismatch: ${image} != ${{ steps.prepare-input.outputs.image-name-no-repo }}:${{ steps.prepare-input.outputs.image-tag }}"
+        if [ "$image" != "${{ steps.prepare-input.outputs.image-name-no-registry }}:${{ steps.prepare-input.outputs.image-tag }}" ]; then
+          >&2 echo "Image mismatch: ${image} != ${{ steps.prepare-input.outputs.image-name-no-registry }}:${{ steps.prepare-input.outputs.image-tag }}"
           exit 1
         fi
         

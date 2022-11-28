@@ -28,9 +28,6 @@ on:
         required: true
       AQUA_IMAGE:
         required: true
-      IMAGE_REGISTRY:
-        required: true
-
 
 jobs:
   # Setup for matrix run.
@@ -101,7 +98,6 @@ jobs:
           aqua-access-token: ${{ secrets.AQUA_ACCESS_TOKEN }}
           aquasec-server-url: ${{ secrets.AQUASEC_SERVER_URL }}
           aqua-image: ${{ secrets.AQUA_IMAGE }}
-          image-registry: ${{ secrets.IMAGE_REGISTRY }}
         env:
           ACTIONS_STEP_DEBUG: ${{ secrets.ACTIONS_STEP_DEBUG }}
 
