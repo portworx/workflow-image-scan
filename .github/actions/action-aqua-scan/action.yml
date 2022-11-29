@@ -1,0 +1,129 @@
+name: 'Run Aqua image scan'
+description: 'Scan the provided image with Aqua scan tool and return a JSON with the results.'
+
+inputs:
+  image:
+    description: 'Full URL of the image to scan.'
+    required: true
+  docker-username:
+    description: 'Docker username.'
+    required: true
+  docker-password:
+    description: 'Docker password.'
+    required: true
+  aqua-account-name:
+    description: 'Aqua account name.'
+    required: true
+  aqua-account-password:
+    description: 'Aqua account password.'
+    required: true
+  aqua-access-token:
+    description: 'Aqua access token.'
+    required: true
+  aquasec-server-url:
+    description: 'Aquasec server URL where the scans will be run.'
+    required: true
+  aqua-image:
+    description: 'Full URI of the aqua scanner image used for scanning.'
+    required: true
+  severity-filter: #todo: implement this
+    description: 'Specify severities of vulnerabilities to be included in the result, in CSV format, e.g. "Critical,High,Medium,Low,Info". (Default: "Critical,High")'
+    default: 'critical,high'
+
+outputs:
+  result-json:
+    description: 'Aqua scan result in JSON format.'
+    value: ${{ steps.process-result.outputs.result-json }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Prepare input
+      id: prepare-input
+      shell: bash
+      run: |
+        echo "image-name-no-registry=$(echo "${{ inputs.image }}" | cut -d: -f1 | cut -d/ -f2-)" >> $GITHUB_OUTPUT
+        echo "image-registry=$(echo "${{ inputs.image }}" | cut -d/ -f1 )" >> $GITHUB_OUTPUT
+        echo "image-tag=$(echo "${{ inputs.image }}" | cut -d: -f2)" >> $GITHUB_OUTPUT
+        echo "safe-image-id=$(echo "${{ inputs.image }}" | sed 's/[^a-zA-Z0-9.-]/-/g')" >> $GITHUB_OUTPUT
+    
+
+    # try only once to pull the aquasec image
+    - name: Aquasec registry login
+      uses: docker/login-action@v2
+      with:
+        registry: registry.aquasec.com
+        username: ${{ inputs.aqua-account-name }}
+        password: ${{ inputs.aqua-account-password }}
+
+    - name: Docker pull
+      shell: bash
+      run: docker pull ${{ inputs.aqua-image }}
+
+    - name: Docker login
+      uses: docker/login-action@v2
+      with:
+        registry: ${{ steps.prepare-input.outputs.image-registry }}
+        username: ${{ inputs.docker-username }}
+        password: ${{ inputs.docker-password }}
+
+    - name: Docker pull
+      shell: bash
+      run: docker pull ${{ inputs.image }}
+
+    - name: Scan image
+      shell: bash
+      run: |
+        mkdir -p evaluations
+        docker run -v "$PWD/evaluations:/evaluations" "${{ inputs.aqua-image }}" \
+        scan --token "${{ inputs.aqua-access-token }}" --host "${{ inputs.aquasec-server-url }}" \
+        --registry "${{ steps.prepare-input.outputs.image-registry }}" --show-negligible --jsonfile /evaluations/evaluation_"${{ steps.prepare-input.outputs.safe-image-id }}".json "${{ steps.prepare-input.outputs.image-name-no-registry }}:${{ steps.prepare-input.outputs.image-tag }}"
+
+    - name: Process result
+      id: process-result
+      shell: bash
+      run: |
+        fullJson=$(find ./evaluations -name 'evaluation_*.json' 2>/dev/null)
+        echo "Parsing result from: $fullJson"
+        
+        # Check image is the same.
+        image=$(cat $fullJson | jq -r '.image' | cut -d/ -f2-)
+        if [ "$image" != "${{ steps.prepare-input.outputs.image-name-no-registry }}:${{ steps.prepare-input.outputs.image-tag }}" ]; then
+          >&2 echo "Image mismatch: ${image} != ${{ steps.prepare-input.outputs.image-name-no-registry }}:${{ steps.prepare-input.outputs.image-tag }}"
+          exit 1
+        fi
+        
+        # Filter JSON by deleting vulnerabilities with unwanted severities.
+        filteredJson="${{ steps.prepare-input.outputs.safe-image-id }}.filtered.json"
+         jq 'del(.resources[].vulnerabilities[] | select(.aqua_severity != "critical" and .aqua_severity != "high"))' \
+          $fullJson > $filteredJson
+        
+        # Convert JSON into a simplified JSON.
+        resultJson="${{ steps.prepare-input.outputs.safe-image-id }}.result.json"
+        jq '{
+              image: "${{ inputs.image }}",
+              stats: {
+                Critical: { total: (if .vulnerability_summary.critical == null then 0 else .vulnerability_summary.critical end) },
+                High: { total: (if .vulnerability_summary.high == null then 0 else .vulnerability_summary.high end) },
+                Medium: { total: (if .vulnerability_summary.medium == null then 0 else .vulnerability_summary.medium end) },
+                Low: { total: (if .vulnerability_summary.low == null then 0 else .vulnerability_summary.low end) },
+                Info: { total: (if .vulnerability_summary.negligible == null then 0 else .vulnerability_summary.negligible end) },
+              },
+              includedSeverities: [ "Critical", "High" ], 
+              vulnerabilities: [.resources[] | .resource as $r | .vulnerabilities[]
+                | {vulnId: .name, severity: .aqua_severity, package: $r.name, currentVersion: $r.version, fixVersion: .fix_version, status: .status, link: .vendor_url}]
+                | sort_by(.severity, .vulnId)
+        
+            }' $filteredJson > $resultJson
+        
+        # Set multiline output.
+        echo 'result-json<<EOF' >> $GITHUB_OUTPUT
+        cat $resultJson >> $GITHUB_OUTPUT
+        echo 'EOF' >> $GITHUB_OUTPUT
+
+    - name: Print result json (debug mode)
+      if: env.ACTIONS_STEP_DEBUG == 'true'
+      shell: bash
+      run: |
+        echo "*** RESULT JSON:"
+        cat ${{ steps.prepare-input.outputs.safe-image-id }}.result.json
