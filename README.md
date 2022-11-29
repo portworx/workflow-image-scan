@@ -46,7 +46,7 @@ In this case the secrets must be defined explicitly:
 ```yml
 jobs:
   image-scan:
-    uses: portworx/workflow-image-scan/.github/workflows/image-scan.yml@v1
+    uses: portworx/workflow-image-scan/.github/workflows/image-scan.yml@v2
     with:
       images: 'docker.io/busybox:1.35.0' 'docker.io/redhat/ubi8:8.6'
     secrets:
