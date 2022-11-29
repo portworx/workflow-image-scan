@@ -1,13 +1,17 @@
 # Reusable GitHub Workflow to Scan Images
 
-> This workflow is highly specific for a few Portworx-internal repositories - may not be suited for generic usage.
+> This workflow is highly specific for a few Portworx-internal repositories -
+> may not be suited for generic usage.
 
 The main goal this workflow is to:
 
-1. Call Lacework scanner action ([lacework/lw-scanner-action](https://github.com/lacework/lw-scanner-action)) for the
-   input images.
-2. Build a scan result summary section and add it to the end of the Actions run page.
-3. Add a comment into the pull request containing the scan results in short form.
+1. Call Lacework scanner
+   action ([lacework/lw-scanner-action](https://github.com/lacework/lw-scanner-action))
+   and run Aqua scanner for the input images.
+2. Build a scan result summary section and add it to the end of the Actions run
+   page.
+3. Add a comment into the pull request containing the scan results in short
+   form.
 
 ## Usage
 
@@ -18,7 +22,7 @@ jobs:
   # ...
   image-scan:
     needs: [ other-job1, other-job2 ]
-    uses: portworx/workflow-image-scan/.github/workflows/image-scan.yml@v1
+    uses: portworx/workflow-image-scan/.github/workflows/image-scan.yml@v2
     with:
       images: ${{ needs.other-job1.outputs.image }} ${{ needs.other-job2.outputs.image }}
     secrets: inherit
@@ -27,13 +31,16 @@ jobs:
 Prerequisites to use:
 
 * The caller repository must be under the Portworx organization.
-* The caller repository must have added all the secrets defined in the [Inputs](#inputs) section below (using the same
+* The caller repository must have added all the secrets defined in
+  the [Inputs](#inputs) section below (using the same
   names).
 
 ### With explicit secrets
 
-The caller cannot use the `inherit` keyword if the caller workflow is not from the Portworx organization
-([doc](https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idsecretsinherit)).
+The caller cannot use the `inherit` keyword if the caller workflow is not from
+the Portworx organization
+([doc](https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idsecretsinherit))
+.
 In this case the secrets must be defined explicitly:
 
 ```yml
@@ -47,6 +54,11 @@ jobs:
       DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
       LW_ACCOUNT_NAME: ${{ secrets.LW_ACCOUNT_NAME }}
       LW_ACCESS_TOKEN: ${{ secrets.LW_ACCESS_TOKEN }}
+      AQUA_ACCOUNT_NAME: ${{ secrets.AQUA_ACCOUNT_NAME }}
+      AQUA_ACCOUNT_PASS: ${{ secrets.AQUA_ACCOUNT_PASS }}
+      AQUA_ACCESS_TOKEN: ${{ secrets.AQUA_ACCESS_TOKEN }}
+      AQUASEC_SERVER_URL: ${{ secrets.AQUASEC_SERVER_URL }}
+      AQUA_IMAGE: ${{ secrets.AQUA_IMAGE }} 
 ```
 
 ## <a id="inputs"></a>Inputs
@@ -70,12 +82,30 @@ jobs:
       # Lacework access token.
       LW_ACCESS_TOKEN:
         required: true
+      # Aqua account name for scanner image retrieval.
+      AQUA_ACCOUNT_NAME:
+        required: true
+      # Aqua account password for scanner image retrieval.
+      AQUA_ACCOUNT_PASS:
+        required: true
+      # Aqua access token for running scans.
+      AQUA_ACCESS_TOKEN:
+        required: true
+      # Aqua server url for running scans.  
+      AQUASEC_SERVER_URL:
+        required: true
+      # Aqua scanner docker image for running scans.
+      AQUA_IMAGE:
+        required: true
 ```
 
 ## Outputs
 
 * Image scan results are:
     * visualized in the job summary section,
-    * visualized in a pull request comment (if the scan result is different from the previous),
-    * uploaded as artifacts into workflow run page as separate JSON files per image (
-      e.g. `docker.io-portworx-pds-base-config-ubi8-a2aee61.lacework-result.json`).
+    * visualized in a pull request comment (if the scan result is different from
+      the previous),
+    * uploaded as artifacts into workflow run page as separate JSON files per
+      image (
+      e.g. `docker.io-portworx-pds-base-config-ubi8-a2aee61.lacework-result.json`)
+      .
