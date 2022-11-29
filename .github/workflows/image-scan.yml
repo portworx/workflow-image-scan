@@ -20,12 +20,19 @@ on:
       # Lacework access token.
       LW_ACCESS_TOKEN:
         required: true
+      # Aqua account name for scanner image retrieval.
       AQUA_ACCOUNT_NAME:
         required: true
+      # Aqua account password for scanner image retrieval.
+      AQUA_ACCOUNT_PASS:
+        required: true
+      # Aqua access token for running scans.
       AQUA_ACCESS_TOKEN:
         required: true
+      # Aqua server url for running scans.
       AQUASEC_SERVER_URL:
         required: true
+      # Aqua scanner docker image for running scans.
       AQUA_IMAGE:
         required: true
 
@@ -139,13 +146,13 @@ jobs:
             echo $row | jq -r ${1}
           }
           summaryForScanner() {
-            for jsonFile in $1; do
-              image=$(jq -r '.image' $jsonFile)
-              cveC=$(jq -r '.stats.Critical.total' $jsonFile)
-              cveH=$(jq -r '.stats.High.total' $jsonFile)
-              cveM=$(jq -r '.stats.Medium.total' $jsonFile)
-              cveL=$(jq -r '.stats.Low.total' $jsonFile)
-              cveI=$(jq -r '.stats.Info.total' $jsonFile)
+            for resultJSONFile in $1; do
+              image=$(jq -r '.image' $resultJSONFile)
+              cveC=$(jq -r '.stats.Critical.total' $resultJSONFile)
+              cveH=$(jq -r '.stats.High.total' $resultJSONFile)
+              cveM=$(jq -r '.stats.Medium.total' $resultJSONFile)
+              cveL=$(jq -r '.stats.Low.total' $resultJSONFile)
+              cveI=$(jq -r '.stats.Info.total' $resultJSONFile)
           
               echo "" >> $GITHUB_STEP_SUMMARY
               echo "### $image" >> $GITHUB_STEP_SUMMARY
@@ -156,20 +163,20 @@ jobs:
               echo "" >> $GITHUB_STEP_SUMMARY
           
               # Print Vulnerability table (if not empty).
-              cveCount=$(jq -r '.vulnerabilities | length' $jsonFile)
+              cveCount=$(jq -r '.vulnerabilities | length' $resultJSONFile)
               echo $2
               if [ $cveCount -gt 0 ]; then
                 if [ "$2" = "aqua" ]; then
                   echo "|Vulnerability|Severity|Package|Current version|Fix version|" >> $GITHUB_STEP_SUMMARY
                   echo "|---|---|---|---|---|" >> $GITHUB_STEP_SUMMARY
-                  for row in $(jq -r '.vulnerabilities[] | @base64' $jsonFile); do
+                  for row in $(jq -r '.vulnerabilities[] | @base64' $resultJSONFile); do
                     row=$(echo ${row} | base64 --decode)
                     echo "| [$(_jq '.vulnId')]($(_jq '.link')) | $(_jq '.severity') | $(_jq '.package') | $(_jq '.currentVersion') | $(_jq '.fixVersion') |" >> $GITHUB_STEP_SUMMARY
                   done
                 else
                   echo "|Vulnerability|Severity|Package|Current version|Fix version|Status|" >> $GITHUB_STEP_SUMMARY
                   echo "|---|---|---|---|---|---|" >> $GITHUB_STEP_SUMMARY
-                  for row in $(jq -r '.vulnerabilities[] | @base64' $jsonFile); do
+                  for row in $(jq -r '.vulnerabilities[] | @base64' $resultJSONFile); do
                   row=$(echo ${row} | base64 --decode)
                   echo "| [$(_jq '.vulnId')]($(_jq '.link')) | $(_jq '.severity') | $(_jq '.package') | $(_jq '.currentVersion') | $(_jq '.fixVersion') | $(_jq '.status') |" >> $GITHUB_STEP_SUMMARY
                   done
@@ -193,23 +200,23 @@ jobs:
             comment="${comment}\n| Image | Critical | High | Medium | Low | Info |"
             comment="${comment}\n|---|---|---|---|---|---|"
             
-            for jsonFile in $aquaResultFiles; do
-              image=$(jq -r '.image' $jsonFile)
-              cveC=$(jq -r '.stats.Critical.total' $jsonFile)
-              cveH=$(jq -r '.stats.High.total' $jsonFile)
-              cveM=$(jq -r '.stats.Medium.total' $jsonFile)
-              cveL=$(jq -r '.stats.Low.total' $jsonFile)
-              cveI=$(jq -r '.stats.Info.total' $jsonFile)
+            for resultJSONFile in $1; do
+              image=$(jq -r '.image' $resultJSONFile)
+              cveC=$(jq -r '.stats.Critical.total' $resultJSONFile)
+              cveH=$(jq -r '.stats.High.total' $resultJSONFile)
+              cveM=$(jq -r '.stats.Medium.total' $resultJSONFile)
+              cveL=$(jq -r '.stats.Low.total' $resultJSONFile)
+              cveI=$(jq -r '.stats.Info.total' $resultJSONFile)
               comment="${comment}\n| ${image} | $(_hln $cveC) | $(_hln $cveH) | $cveM | $cveL | $cveI |"
             done
           }
           setStatusIcon(){
             statusIcon=":green_circle:"
-            for jsonFile in $lwResultFiles; do
-              cveC=$(jq -r '.stats.Critical.total' $jsonFile)
-              cveH=$(jq -r '.stats.High.total' $jsonFile)
+            for resultJSONFile in $1; do
+              cveC=$(jq -r '.stats.Critical.total' $resultJSONFile)
+              cveH=$(jq -r '.stats.High.total' $resultJSONFile)
               if [ $cveC -gt 0 ] || [ $cveH -gt 0 ]; then
-                lwStatusIcon=":red_circle:"
+                statusIcon=":red_circle:"
                 break
               fi
             done       
@@ -224,15 +231,15 @@ jobs:
           }   
           lwResultFiles="$(find . -type f -name '*.lacework-result.json' | sort)"
           
-          setStatusIcon
+          setStatusIcon "$lwResultFiles"
           comment="### ${statusIcon}&nbsp; Lacework scan results:"
           createPRCommentTable "$lwResultFiles"
           
           aquaResultFiles="$(find . -type f -name '*.aqua-result.json' | sort)"
           
-          setStatusIcon
+          setStatusIcon "$aquaResultFiles"
           comment="${comment}\n### ${statusIcon}&nbsp; Aqua scan results:"
-          createPRCommentTable $aquaResultFiles
+          createPRCommentTable "$aquaResultFiles"
           
           runUrl="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#user-content-scan-results"
           comment="${comment}\n\n<sup>[Go to job summary for more details...]($runUrl)</sup>"

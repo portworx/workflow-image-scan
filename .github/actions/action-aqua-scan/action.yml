@@ -26,8 +26,8 @@ inputs:
   aqua-image:
     description: 'Full URI of the aqua scanner image used for scanning.'
     required: true
-  severity-filter:
-    description: 'Specify severities of CVEs to be included in the result, in CSV format, e.g. "Critical,High,Medium,Low,Info". (Default: "Critical,High")'
+  severity-filter: #todo: implement this
+    description: 'Specify severities of vulnerabilities to be included in the result, in CSV format, e.g. "Critical,High,Medium,Low,Info". (Default: "Critical,High")'
     default: 'critical,high'
 
 outputs:
