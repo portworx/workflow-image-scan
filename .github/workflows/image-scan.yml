@@ -95,7 +95,7 @@ jobs:
     steps:
       - name: Call Aqua scan
         id: run-scan
-        uses: portworx/workflow-image-scan/.github/actions/action-aqua-scan@v2.0.0
+        uses: portworx/workflow-image-scan/.github/actions/action-aqua-scan@v2.0.1
         with:
           image: ${{ matrix.image }}
           docker-username: ${{ secrets.DOCKER_USERNAME }}
