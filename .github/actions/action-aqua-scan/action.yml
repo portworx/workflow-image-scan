@@ -95,7 +95,7 @@ runs:
         
         # Filter JSON by deleting vulnerabilities with unwanted severities.
         filteredJson="${{ steps.prepare-input.outputs.safe-image-id }}.filtered.json"
-         jq 'del(.resources[].vulnerabilities[] | select(.aqua_severity != "critical" and .aqua_severity != "high"))' \
+         jq 'if .resources == null then . else del(.resources[].vulnerabilities[] | select(.aqua_severity != "critical" and .aqua_severity != "high")) end' \
           $fullJson > $filteredJson
         
         # Convert JSON into a simplified JSON.
@@ -110,9 +110,10 @@ runs:
                 Info: { total: (if .vulnerability_summary.negligible == null then 0 else .vulnerability_summary.negligible end) },
               },
               includedSeverities: [ "Critical", "High" ], 
-              vulnerabilities: [.resources[] | .resource as $r | .vulnerabilities[]
-                | {vulnId: .name, severity: .aqua_severity, package: $r.name, currentVersion: $r.version, fixVersion: .fix_version, status: .status, link: .vendor_url}]
-                | sort_by(.severity, .vulnId)
+              vulnerabilities: (if .resources == null then [] else [.resources[] | .resource as $r | 
+              .vulnerabilities[] | {vulnId: .name, severity: .aqua_severity, package: $r.name, 
+              currentVersion: $r.version, fixVersion: .fix_version, status: .status, link: .vendor_url}] | 
+              sort_by(.severity, .vulnId) end)
         
             }' $filteredJson > $resultJson
         

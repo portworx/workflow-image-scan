@@ -57,9 +57,10 @@ jobs:
       matrix:
         image: ${{fromJson(needs.setup.outputs.imagesJson)}}
     steps:
+      - uses: actions/checkout@v2.3.4 # Necessary to access local action
       - name: Call Lacework scan
         id: run-scan
-        uses: portworx/workflow-image-scan/.github/actions/action-lacework-scan@v2.0.0
+        uses: ./.github/actions/action-lacework-scan/
         with:
           image: ${{ matrix.image }}
           docker-username: ${{ secrets.DOCKER_USERNAME }}
@@ -93,9 +94,10 @@ jobs:
       matrix:
         image: ${{fromJson(needs.setup.outputs.imagesJson)}}
     steps:
+      - uses: actions/checkout@v2.3.4 # Necessary to access local action
       - name: Call Aqua scan
         id: run-scan
-        uses: portworx/workflow-image-scan/.github/actions/action-aqua-scan@v2.0.0
+        uses: ./.github/actions/action-aqua-scan/
         with:
           image: ${{ matrix.image }}
           docker-username: ${{ secrets.DOCKER_USERNAME }}
