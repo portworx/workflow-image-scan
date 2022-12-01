@@ -216,7 +216,7 @@ jobs:
               cveL=$(jq -r '.stats.Low.total' $resultJSONFile)
               cveI=$(jq -r '.stats.Info.total' $resultJSONFile)
               policyFailures=$(jq -r '.policyFailures | length' $resultJSONFile)
-              comment="${comment}\n| ${image} | $(_hln $cveC) | $(_hln $cveH) | $cveM | $cveL | $cveI | $policyFailures |"
+              comment="${comment}\n| ${image} | $(_hln $cveC) | $(_hln $cveH) | $cveM | $cveL | $cveI |  $(_hln $policyFailures) |"
             done
           }
           setStatusIcon(){
