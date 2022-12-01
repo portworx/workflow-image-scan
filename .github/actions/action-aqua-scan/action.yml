@@ -77,7 +77,10 @@ runs:
         mkdir -p evaluations
         docker run -v "$PWD/evaluations:/evaluations" "${{ inputs.aqua-image }}" \
         scan --token "${{ inputs.aqua-access-token }}" --host "${{ inputs.aquasec-server-url }}" \
-        --registry "${{ steps.prepare-input.outputs.image-registry }}" --show-negligible --jsonfile /evaluations/evaluation_"${{ steps.prepare-input.outputs.safe-image-id }}".json "${{ steps.prepare-input.outputs.image-name-no-registry }}:${{ steps.prepare-input.outputs.image-tag }}"
+        --registry "${{ steps.prepare-input.outputs.image-registry }}" --show-negligible --jsonfile /evaluations/evaluation_"${{ steps.prepare-input.outputs.safe-image-id }}".json "${{ steps.prepare-input.outputs.image-name-no-registry }}:${{ steps.prepare-input.outputs.image-tag }}" || true
+        if [ ! -f $PWD/evaluations/evaluation_"${{ steps.prepare-input.outputs.safe-image-id }}".json ]; then
+          echo "File with scan output not created" && false
+        fi
 
     - name: Process result
       id: process-result
@@ -95,7 +98,7 @@ runs:
         
         # Filter JSON by deleting vulnerabilities with unwanted severities.
         filteredJson="${{ steps.prepare-input.outputs.safe-image-id }}.filtered.json"
-         jq 'if .resources == null then . else del(.resources[].vulnerabilities[] | select(.aqua_severity != "critical" and .aqua_severity != "high")) end' \
+         jq 'if .resources == null then . else del(.resources[] | select(.vulnerabilities == null)) | del(.resources[].vulnerabilities[] | select(.aqua_severity != "critical" and .aqua_severity != "high")) end' \
           $fullJson > $filteredJson
         
         # Convert JSON into a simplified JSON.
@@ -113,8 +116,10 @@ runs:
               vulnerabilities: (if .resources == null then [] else [.resources[] | .resource as $r | 
               .vulnerabilities[] | {vulnId: .name, severity: .aqua_severity, package: $r.name, 
               currentVersion: $r.version, fixVersion: .fix_version, status: .status, link: .vendor_url}] | 
-              sort_by(.severity, .vulnId) end)
-        
+              sort_by(.severity, .vulnId) end),
+              policyFailures: (if .image_assurance_results.policy_failures == null then [] 
+              else [.image_assurance_results.policy_failures[] | 
+              {policyId: .policy_id, policyName: .policy_name, blocking: (if .blocking == true then "Yes" else "No" end)}] end)
             }' $filteredJson > $resultJson
         
         # Set multiline output.

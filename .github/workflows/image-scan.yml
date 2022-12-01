@@ -59,7 +59,7 @@ jobs:
     steps:
       - name: Call Lacework scan
         id: run-scan
-        uses: portworx/workflow-image-scan/.github/actions/action-lacework-scan@v2.0.2
+        uses: portworx/workflow-image-scan/.github/actions/action-lacework-scan@v2.1.0
         with:
           image: ${{ matrix.image }}
           docker-username: ${{ secrets.DOCKER_USERNAME }}
@@ -95,7 +95,7 @@ jobs:
     steps:
       - name: Call Aqua scan
         id: run-scan
-        uses: portworx/workflow-image-scan/.github/actions/action-aqua-scan@v2.0.2
+        uses: portworx/workflow-image-scan/.github/actions/action-aqua-scan@v2.1.0
         with:
           image: ${{ matrix.image }}
           docker-username: ${{ secrets.DOCKER_USERNAME }}
@@ -156,7 +156,6 @@ jobs:
           
               echo "" >> $GITHUB_STEP_SUMMARY
               echo "### $image" >> $GITHUB_STEP_SUMMARY
-          
               echo "| Critical | High | Medium | Low | Info |" >> $GITHUB_STEP_SUMMARY
               echo "|---|---|---|---|---|" >> $GITHUB_STEP_SUMMARY
               echo "| $(_hln $cveC) | $(_hln $cveH) | $cveM | $cveL | $cveI |" >> $GITHUB_STEP_SUMMARY
@@ -164,7 +163,6 @@ jobs:
           
               # Print Vulnerability table (if not empty).
               cveCount=$(jq -r '.vulnerabilities | length' $resultJSONFile)
-              echo $2
               if [ $cveCount -gt 0 ]; then
                 if [ "$2" = "aqua" ]; then
                   echo "|Vulnerability|Severity|Package|Current version|Fix version|" >> $GITHUB_STEP_SUMMARY
@@ -182,6 +180,16 @@ jobs:
                   done
                 fi
               fi
+              policyFailureCount=$(jq -r '.policyFailures | length' $resultJSONFile)
+              if [ $policyFailureCount -gt 0 ]; then
+                echo "#### Policy failures" >> $GITHUB_STEP_SUMMARY
+                echo "|Policy Id| Policy Name |Blocking|" >> $GITHUB_STEP_SUMMARY
+                echo "|---|---|---|" >> $GITHUB_STEP_SUMMARY
+                for row in $(jq -r '.policyFailures[] | @base64' $resultJSONFile); do
+                  row=$(echo ${row} | base64 --decode)
+                  echo "| $(_jq '.policyId') | $(_jq '.policyName') | $(_jq '.blocking') |" >> $GITHUB_STEP_SUMMARY
+                done
+              fi
             done
           }
           lwResultFiles="$(find . -type f -name '*.lacework-result.json' | sort)"
@@ -197,9 +205,9 @@ jobs:
         shell: bash
         run: |
           createPRCommentTable() {
-            comment="${comment}\n| Image | Critical | High | Medium | Low | Info |"
-            comment="${comment}\n|---|---|---|---|---|---|"
-            
+            comment="${comment}\n| Image | Critical | High | Medium | Low | Info | Policy failures |"
+            comment="${comment}\n|---|---|---|---|---|---|---|"
+          
             for resultJSONFile in $1; do
               image=$(jq -r '.image' $resultJSONFile)
               cveC=$(jq -r '.stats.Critical.total' $resultJSONFile)
@@ -207,7 +215,8 @@ jobs:
               cveM=$(jq -r '.stats.Medium.total' $resultJSONFile)
               cveL=$(jq -r '.stats.Low.total' $resultJSONFile)
               cveI=$(jq -r '.stats.Info.total' $resultJSONFile)
-              comment="${comment}\n| ${image} | $(_hln $cveC) | $(_hln $cveH) | $cveM | $cveL | $cveI |"
+              policyFailures=$(jq -r '.policyFailures | length' $resultJSONFile)
+              comment="${comment}\n| ${image} | $(_hln $cveC) | $(_hln $cveH) | $cveM | $cveL | $cveI | $policyFailures |"
             done
           }
           setStatusIcon(){
@@ -215,7 +224,8 @@ jobs:
             for resultJSONFile in $1; do
               cveC=$(jq -r '.stats.Critical.total' $resultJSONFile)
               cveH=$(jq -r '.stats.High.total' $resultJSONFile)
-              if [ $cveC -gt 0 ] || [ $cveH -gt 0 ]; then
+              policyFailures=$(jq -r '.policyFailures | length' $resultJSONFile)
+              if [ $cveC -gt 0 ] || [ $cveH -gt 0 ] || [ $policyFailures -gt 0 ]; then
                 statusIcon=":red_circle:"
                 break
               fi
@@ -240,6 +250,7 @@ jobs:
           setStatusIcon "$aquaResultFiles"
           comment="${comment}\n### ${statusIcon}&nbsp; Aqua scan results:"
           createPRCommentTable "$aquaResultFiles"
+          
           
           runUrl="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#user-content-scan-results"
           comment="${comment}\n\n<sup>[Go to job summary for more details...]($runUrl)</sup>"
