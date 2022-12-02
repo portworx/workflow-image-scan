@@ -167,18 +167,18 @@ jobs:
               cveCount=$(jq -r '.vulnerabilities | length' $resultJSONFile)
               if [ $cveCount -gt 0 ]; then
                 if [ "$2" = "aqua" ]; then
-                  echo "|Vulnerability|Severity|Package|Current version|Fix version|" >> $GITHUB_STEP_SUMMARY
-                  echo "|---|---|---|---|---|" >> $GITHUB_STEP_SUMMARY
-                  for row in $(jq -r '.vulnerabilities[] | @base64' $resultJSONFile); do
-                    row=$(echo ${row} | base64 --decode)
-                    echo "| [$(_jq '.vulnId')]($(_jq '.link')) | $(_jq '.severity') | $(_jq '.package') | $(_jq '.currentVersion') | $(_jq '.fixVersion') |" >> $GITHUB_STEP_SUMMARY
-                  done
-                else
-                  echo "|Vulnerability|Severity|Package|Current version|Fix version|Status|" >> $GITHUB_STEP_SUMMARY
+                  echo "|Vulnerability|Severity|Package|Current version|Path|Fix version|" >> $GITHUB_STEP_SUMMARY
                   echo "|---|---|---|---|---|---|" >> $GITHUB_STEP_SUMMARY
                   for row in $(jq -r '.vulnerabilities[] | @base64' $resultJSONFile); do
+                    row=$(echo ${row} | base64 --decode)
+                    echo "| [$(_jq '.vulnId')]($(_jq '.link')) | $(_jq '.severity') | $(_jq '.package') | $(_jq '.currentVersion') | $(_jq '.path') | $(_jq '.fixVersion') |" >> $GITHUB_STEP_SUMMARY
+                  done
+                else
+                  echo "|Vulnerability|Severity|Package|Current version| Path |Fix version|Status|" >> $GITHUB_STEP_SUMMARY
+                  echo "|---|---|---|---|---|---|---|" >> $GITHUB_STEP_SUMMARY
+                  for row in $(jq -r '.vulnerabilities[] | @base64' $resultJSONFile); do
                   row=$(echo ${row} | base64 --decode)
-                  echo "| [$(_jq '.vulnId')]($(_jq '.link')) | $(_jq '.severity') | $(_jq '.package') | $(_jq '.currentVersion') | $(_jq '.fixVersion') | $(_jq '.status') |" >> $GITHUB_STEP_SUMMARY
+                  echo "| [$(_jq '.vulnId')]($(_jq '.link')) | $(_jq '.severity') | $(_jq '.package') | $(_jq '.currentVersion') | $(_jq '.path') | $(_jq '.fixVersion') | $(_jq '.status') |" >> $GITHUB_STEP_SUMMARY
                   done
                 fi
               fi

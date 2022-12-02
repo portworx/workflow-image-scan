@@ -112,9 +112,18 @@ runs:
               Info: { total: .cve.info_vulnerabilities, fixable: .cve.info_fixable_vulnerabilities }
             },
             includedSeverities: [ "Critical", "High" ], 
-            vulnerabilities: [.cve.image.image_layers[].packages[] | . as $p | .vulnerabilities[]
-              | {vulnId: .name, severity: .severity, package: $p.name, currentVersion: $p.version, fixVersion: .fix_version, status: .status, link: .link}]
-              | sort_by(.severity, .vulnId)
+            vulnerabilities: [.cve.image.image_layers[].packages[] | . as $p | .vulnerabilities[] | 
+              {
+                vulnId: .name,
+                severity: .severity,
+                package: $p.name,
+                currentVersion: $p.version,
+                fixVersion: .fix_version,
+                status: .status,
+                link: .link,
+                path: (if $p.src == null then "" else $p.src end)
+              }
+            ] | sort_by(.severity, .vulnId)
           }' $filteredJson > $resultJson
       
       # Set multiline output.

@@ -131,10 +131,19 @@ runs:
                 Info: { total: (if .vulnerability_summary.negligible == null then 0 else .vulnerability_summary.negligible end) },
               },
               includedSeverities: [ "Critical", "High" ], 
-              vulnerabilities: (if .resources == null then [] else [.resources[] | .resource as $r | 
-              .vulnerabilities[] | {vulnId: .name, severity: .aqua_severity, package: $r.name, 
-              currentVersion: $r.version, fixVersion: .fix_version, status: .status, link: .vendor_url}] | 
-              sort_by(.severity, .vulnId) end),
+              vulnerabilities: (if .resources == null then [] else [
+              .resources[] | .resource as $r | .vulnerabilities[] | 
+                {
+                  vulnId: .name,
+                  severity: .aqua_severity, 
+                  package: $r.name, 
+                  currentVersion: $r.version, 
+                  fixVersion: .fix_version, 
+                  status: .status, 
+                  link: .vendor_url,
+                  path: (if $r.path == null then "" else $r.path end)
+                }
+              ] | sort_by(.severity, .vulnId) end),
               policyFailures: (if .image_assurance_results.policy_failures == null then [] 
               else [
                 .image_assurance_results.policy_failures[] | 
