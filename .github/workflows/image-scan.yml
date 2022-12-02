@@ -148,6 +148,7 @@ jobs:
           summaryForScanner() {
             for resultJSONFile in $1; do
               image=$(jq -r '.image' $resultJSONFile)
+              detailedArtifactName=$(echo $image | sed 's/[^a-zA-Z0-9.-]/-/g')-scan-detailed-result.json
               cveC=$(jq -r '.stats.Critical.total' $resultJSONFile)
               cveH=$(jq -r '.stats.High.total' $resultJSONFile)
               cveM=$(jq -r '.stats.Medium.total' $resultJSONFile)
@@ -156,6 +157,7 @@ jobs:
           
               echo "" >> $GITHUB_STEP_SUMMARY
               echo "### $image" >> $GITHUB_STEP_SUMMARY
+              echo "###### Detailed scan result was stored as an artifact named: `$detailedArtifactName`" >> $GITHUB_STEP_SUMMARY
               echo "| Critical | High | Medium | Low | Info |" >> $GITHUB_STEP_SUMMARY
               echo "|---|---|---|---|---|" >> $GITHUB_STEP_SUMMARY
               echo "| $(_hln $cveC) | $(_hln $cveH) | $cveM | $cveL | $cveI |" >> $GITHUB_STEP_SUMMARY
@@ -187,7 +189,9 @@ jobs:
                 echo "|---|---|---|" >> $GITHUB_STEP_SUMMARY
                 for row in $(jq -r '.policyFailures[] | @base64' $resultJSONFile); do
                   row=$(echo ${row} | base64 --decode)
-                  echo "| $(_jq '.policyId') | $(_jq '.policyName') | $(_jq '.blocking') |" >> $GITHUB_STEP_SUMMARY
+                  blocking=$(_jq '.blocking')
+                  blockingSign=$(if [ $blocking = "Yes" ]; then echo ":x:"; fi) 
+                  echo "| $(_jq '.policyId') | $(_jq '.policyName') | $blocking $blockingSign |" >> $GITHUB_STEP_SUMMARY
                 done
               fi
             done
