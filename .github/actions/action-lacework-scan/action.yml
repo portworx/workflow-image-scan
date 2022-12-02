@@ -61,13 +61,29 @@ runs:
       SAVE_RESULTS_IN_LACEWORK: ${{ inputs.save-results-in-lacework }}
       LW_SCANNER_ENABLE_DEBUGGING: ${{ env.ACTIONS_STEP_DEBUG }}
 
+  - name: Find scan results
+    id: find-scan-results
+    shell: bash
+    run: |
+      fullJson=$(find ./evaluations -name 'evaluation_*.json')
+      if [ -z $fullJson ]; then
+      echo "No scan results found." # if the file is not created, it means that the scan failed
+      exit 1
+      fi
+      echo "fullJson=$fullJson" >> $GITHUB_OUTPUT
+
+  - name: Upload scan result
+    uses: actions/upload-artifact@v3
+    with:
+      name: ${{ steps.prepare-input.outputs.safe-image-id }}-lw-scan-detailed-result.json
+      path: ${{ steps.find-scan-results.outputs.fullJson }}
 
   - name: Process result
     id: process-result
     shell: bash
     run: |
-      fullJson=$(find ./evaluations -name 'evaluation_*.json' 2>/dev/null)
-      echo "Parsing result from: $fullJson"
+      fullJson=${{ steps.find-scan-results.outputs.fullJson }}
+      echo "Parsing result from: "$fullJson
 
       # Check image is the same.
       imageName=$(cat $fullJson | jq -r '.cve.image.image_info.repository')
@@ -96,9 +112,18 @@ runs:
               Info: { total: .cve.info_vulnerabilities, fixable: .cve.info_fixable_vulnerabilities }
             },
             includedSeverities: [ "Critical", "High" ], 
-            vulnerabilities: [.cve.image.image_layers[].packages[] | . as $p | .vulnerabilities[]
-              | {vulnId: .name, severity: .severity, package: $p.name, currentVersion: $p.version, fixVersion: .fix_version, status: .status, link: .link}]
-              | sort_by(.severity, .vulnId)
+            vulnerabilities: [.cve.image.image_layers[].packages[] | . as $p | .vulnerabilities[] | 
+              {
+                vulnId: .name,
+                severity: .severity,
+                package: $p.name,
+                currentVersion: $p.version,
+                fixVersion: .fix_version,
+                status: .status,
+                link: .link,
+                path: (if $p.src == null then "" else $p.src end)
+              }
+            ] | sort_by(.severity, .vulnId)
           }' $filteredJson > $resultJson
       
       # Set multiline output.

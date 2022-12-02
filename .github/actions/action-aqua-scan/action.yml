@@ -77,14 +77,35 @@ runs:
         mkdir -p evaluations
         docker run -v "$PWD/evaluations:/evaluations" "${{ inputs.aqua-image }}" \
         scan --token "${{ inputs.aqua-access-token }}" --host "${{ inputs.aquasec-server-url }}" \
-        --registry "${{ steps.prepare-input.outputs.image-registry }}" --show-negligible --jsonfile /evaluations/evaluation_"${{ steps.prepare-input.outputs.safe-image-id }}".json "${{ steps.prepare-input.outputs.image-name-no-registry }}:${{ steps.prepare-input.outputs.image-tag }}"
+        --registry "${{ steps.prepare-input.outputs.image-registry }}" --show-negligible --jsonfile /evaluations/evaluation_"${{ steps.prepare-input.outputs.safe-image-id }}".json "${{ steps.prepare-input.outputs.image-name-no-registry }}:${{ steps.prepare-input.outputs.image-tag }}" || \
+        true
+        # the || true  is needed because the aquasec scan returns non zero exit code when there are policy violations,
+        # but still generates a valid json file with the results
+
+    - name: Find scan results
+      id: find-scan-results
+      shell: bash
+      run: |
+        fullJson=$(find ./evaluations -name 'evaluation_*.json')
+        
+        if [ -z $fullJson ]; then
+          echo "No scan results found." # if the file is not created, it means that the scan failed
+          exit 1
+        fi
+        echo "fullJson=$fullJson" >> $GITHUB_OUTPUT
+
+    - name: Upload scan result
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ steps.prepare-input.outputs.safe-image-id }}-aqua-scan-detailed-result.json
+        path: ${{ steps.find-scan-results.outputs.fullJson }}
 
     - name: Process result
       id: process-result
       shell: bash
       run: |
-        fullJson=$(find ./evaluations -name 'evaluation_*.json' 2>/dev/null)
-        echo "Parsing result from: $fullJson"
+        fullJson=${{ steps.find-scan-results.outputs.fullJson }}
+        echo "Parsing result from: "$fullJson
         
         # Check image is the same.
         image=$(cat $fullJson | jq -r '.image' | cut -d/ -f2-)
@@ -95,7 +116,7 @@ runs:
         
         # Filter JSON by deleting vulnerabilities with unwanted severities.
         filteredJson="${{ steps.prepare-input.outputs.safe-image-id }}.filtered.json"
-         jq 'if .resources == null then . else del(.resources[].vulnerabilities[] | select(.aqua_severity != "critical" and .aqua_severity != "high")) end' \
+         jq 'if .resources == null then . else del(.resources[] | select(.vulnerabilities == null)) | del(.resources[].vulnerabilities[] | select(.aqua_severity != "critical" and .aqua_severity != "high")) end' \
           $fullJson > $filteredJson
         
         # Convert JSON into a simplified JSON.
@@ -110,11 +131,28 @@ runs:
                 Info: { total: (if .vulnerability_summary.negligible == null then 0 else .vulnerability_summary.negligible end) },
               },
               includedSeverities: [ "Critical", "High" ], 
-              vulnerabilities: (if .resources == null then [] else [.resources[] | .resource as $r | 
-              .vulnerabilities[] | {vulnId: .name, severity: .aqua_severity, package: $r.name, 
-              currentVersion: $r.version, fixVersion: .fix_version, status: .status, link: .vendor_url}] | 
-              sort_by(.severity, .vulnId) end)
-        
+              vulnerabilities: (if .resources == null then [] else [
+              .resources[] | .resource as $r | .vulnerabilities[] | 
+                {
+                  vulnId: .name,
+                  severity: .aqua_severity, 
+                  package: $r.name, 
+                  currentVersion: $r.version, 
+                  fixVersion: .fix_version, 
+                  status: .status, 
+                  link: .vendor_url,
+                  path: (if $r.path == null then "" else $r.path end)
+                }
+              ] | sort_by(.severity, .vulnId) end),
+              policyFailures: (if .image_assurance_results.policy_failures == null then [] 
+              else [
+                .image_assurance_results.policy_failures[] | 
+                {
+                  policyId: .policy_id,
+                  policyName: .policy_name, 
+                  blocking: (if .blocking == true then "Yes" else "No" end)
+                }
+              ] end)
             }' $filteredJson > $resultJson
         
         # Set multiline output.
