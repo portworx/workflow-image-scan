@@ -157,7 +157,7 @@ jobs:
           
               echo "" >> $GITHUB_STEP_SUMMARY
               echo "### $image" >> $GITHUB_STEP_SUMMARY
-              echo "###### Detailed scan result was stored as an artifact named: `$detailedArtifactName`" >> $GITHUB_STEP_SUMMARY
+              echo "###### Detailed scan result was stored as an artifact named: \`"$detailedArtifactName"\`" >> $GITHUB_STEP_SUMMARY
               echo "| Critical | High | Medium | Low | Info |" >> $GITHUB_STEP_SUMMARY
               echo "|---|---|---|---|---|" >> $GITHUB_STEP_SUMMARY
               echo "| $(_hln $cveC) | $(_hln $cveH) | $cveM | $cveL | $cveI |" >> $GITHUB_STEP_SUMMARY
@@ -254,8 +254,7 @@ jobs:
           setStatusIcon "$aquaResultFiles"
           comment="${comment}\n### ${statusIcon}&nbsp; Aqua scan results:"
           createPRCommentTable "$aquaResultFiles"
-          
-          
+        
           runUrl="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#user-content-scan-results"
           comment="${comment}\n\n<sup>[Go to job summary for more details...]($runUrl)</sup>"
           
