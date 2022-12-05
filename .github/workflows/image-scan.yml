@@ -148,7 +148,7 @@ jobs:
           summaryForScanner() {
             for resultJSONFile in $1; do
               image=$(jq -r '.image' $resultJSONFile)
-              detailedArtifactName=$(echo $image | sed 's/[^a-zA-Z0-9.-]/-/g')-scan-detailed-result.json
+              detailedArtifactName=$(echo $image | sed 's/[^a-zA-Z0-9.-]/-/g')-$2-scan-detailed-result.json
               cveC=$(jq -r '.stats.Critical.total' $resultJSONFile)
               cveH=$(jq -r '.stats.High.total' $resultJSONFile)
               cveM=$(jq -r '.stats.Medium.total' $resultJSONFile)
