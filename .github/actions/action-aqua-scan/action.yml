@@ -75,9 +75,9 @@ runs:
       shell: bash
       run: |
         mkdir -p evaluations
-        docker run -v "$PWD/evaluations:/evaluations" "${{ inputs.aqua-image }}" \
+        docker run -v "$PWD/evaluations:/evaluations" -v "/var/run/docker.sock:/var/run/docker.sock" "${{ inputs.aqua-image }}" \
         scan --token "${{ inputs.aqua-access-token }}" --host "${{ inputs.aquasec-server-url }}" \
-        --registry "${{ steps.prepare-input.outputs.image-registry }}" --show-negligible --jsonfile /evaluations/evaluation_"${{ steps.prepare-input.outputs.safe-image-id }}".json "${{ steps.prepare-input.outputs.image-name-no-registry }}:${{ steps.prepare-input.outputs.image-tag }}" || \
+        --local --show-negligible --jsonfile /evaluations/evaluation_"${{ steps.prepare-input.outputs.safe-image-id }}".json "${{ steps.prepare-input.outputs.image-name-no-registry }}:${{ steps.prepare-input.outputs.image-tag }}" || \
         true
         # the || true  is needed because the aquasec scan returns non zero exit code when there are policy violations,
         # but still generates a valid json file with the results
@@ -108,7 +108,7 @@ runs:
         echo "Parsing result from: "$fullJson
         
         # Check image is the same.
-        image=$(cat $fullJson | jq -r '.image' | cut -d/ -f2-)
+        image=$(cat $fullJson | jq -r '.image')
         if [ "$image" != "${{ steps.prepare-input.outputs.image-name-no-registry }}:${{ steps.prepare-input.outputs.image-tag }}" ]; then
           >&2 echo "Image mismatch: ${image} != ${{ steps.prepare-input.outputs.image-name-no-registry }}:${{ steps.prepare-input.outputs.image-tag }}"
           exit 1
