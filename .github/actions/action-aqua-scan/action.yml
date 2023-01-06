@@ -42,11 +42,7 @@ runs:
       id: prepare-input
       shell: bash
       run: |
-        echo "image-name-no-registry=$(echo "${{ inputs.image }}" | cut -d: -f1 | cut -d/ -f2-)" >> $GITHUB_OUTPUT
-        echo "image-registry=$(echo "${{ inputs.image }}" | cut -d/ -f1 )" >> $GITHUB_OUTPUT
-        echo "image-tag=$(echo "${{ inputs.image }}" | cut -d: -f2)" >> $GITHUB_OUTPUT
-        echo "safe-image-id=$(echo "${{ inputs.image }}" | sed 's/[^a-zA-Z0-9.-]/-/g')" >> $GITHUB_OUTPUT
-    
+        echo "safe-image-id=$(echo "${{ inputs.image }}" | sed 's/[^a-zA-Z0-9.-]/-/g')" >> $GITHUB_OUTPUT    
 
     # try only once to pull the aquasec image
     - name: Aquasec registry login
@@ -76,7 +72,7 @@ runs:
         mkdir -p evaluations
         docker run -v "$PWD/evaluations:/evaluations" -v "/var/run/docker.sock:/var/run/docker.sock" "${{ inputs.aqua-image }}" \
         scan --token "${{ inputs.aqua-access-token }}" --host "${{ inputs.aquasec-server-url }}" \
-        --local --show-negligible --jsonfile /evaluations/evaluation_"${{ steps.prepare-input.outputs.safe-image-id }}".json "${{ steps.prepare-input.outputs.image-name-no-registry }}:${{ steps.prepare-input.outputs.image-tag }}" || \
+        --show-negligible --jsonfile /evaluations/evaluation_"${{ steps.prepare-input.outputs.safe-image-id }}".json --local "${{ inputs.image }}" || \
         true
         # the || true  is needed because the aquasec scan returns non zero exit code when there are policy violations,
         # but still generates a valid json file with the results
@@ -108,8 +104,8 @@ runs:
         
         # Check image is the same.
         image=$(cat $fullJson | jq -r '.image')
-        if [ "$image" != "${{ steps.prepare-input.outputs.image-name-no-registry }}:${{ steps.prepare-input.outputs.image-tag }}" ]; then
-          >&2 echo "Image mismatch: ${image} != ${{ steps.prepare-input.outputs.image-name-no-registry }}:${{ steps.prepare-input.outputs.image-tag }}"
+        if [ "$image" != "${{ inputs.image }}" ]; then
+          >&2 echo "Image mismatch: ${image} != ${{ inputs.image }}"
           exit 1
         fi
         
