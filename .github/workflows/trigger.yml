@@ -1,0 +1,15 @@
+name: Push Images
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+  # Allow manually triggering in Actions tab
+  workflow_dispatch:
+
+jobs:
+  image-scan:
+    uses: ./.github/workflows/image-scan.yml
+    with:
+      images: "docker.io/portworx/pds-mysql-router:8.0.30-676b5f0"
+    secrets: inherit
