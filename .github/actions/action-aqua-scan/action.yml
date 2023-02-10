@@ -42,7 +42,9 @@ runs:
       id: prepare-input
       shell: bash
       run: |
-        echo "safe-image-id=$(echo "${{ inputs.image }}" | sed 's/[^a-zA-Z0-9.-]/-/g')" >> $GITHUB_OUTPUT    
+        echo "safe-image-id=$(echo "${{ inputs.image }}" | sed 's/[^a-zA-Z0-9.-]/-/g')" >> $GITHUB_OUTPUT
+        RAW_IMAGE="${{ steps.prepare-input.outputs.image-name }}"
+        echo "image-name=${RAW_IMAGE#'docker.io/}" >> $GITHUB_OUTPUT
 
     # try only once to pull the aquasec image
     - name: Aquasec registry login
@@ -64,7 +66,7 @@ runs:
 
     - name: Docker pull
       shell: bash
-      run: docker pull ${{ inputs.image }}
+      run: docker pull ${{ steps.prepare-input.outputs.image-name }}
 
     - name: Scan image
       shell: bash
@@ -72,7 +74,7 @@ runs:
         mkdir -p evaluations
         docker run -v "$PWD/evaluations:/evaluations" -v "/var/run/docker.sock:/var/run/docker.sock" "${{ inputs.aqua-image }}" \
         scan --token "${{ inputs.aqua-access-token }}" --host "${{ inputs.aquasec-server-url }}" \
-        --show-negligible --jsonfile /evaluations/evaluation_"${{ steps.prepare-input.outputs.safe-image-id }}".json --local "${{ inputs.image }}" || \
+        --show-negligible --jsonfile /evaluations/evaluation_"${{ steps.prepare-input.outputs.safe-image-id }}".json --local "${{ steps.prepare-input.outputs.image-name }}" || \
         true
         # the || true  is needed because the aquasec scan returns non zero exit code when there are policy violations,
         # but still generates a valid json file with the results
@@ -104,8 +106,8 @@ runs:
         
         # Check image is the same.
         image=$(cat $fullJson | jq -r '.image')
-        if [ "$image" != "${{ inputs.image }}" ]; then
-          >&2 echo "Image mismatch: ${image} != ${{ inputs.image }}"
+        if [ "$image" != "${{ steps.prepare-input.outputs.image-name }}" ]; then
+          >&2 echo "Image mismatch: ${image} != ${{ steps.prepare-input.outputs.image-name }}"
           exit 1
         fi
         
