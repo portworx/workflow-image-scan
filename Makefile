@@ -1,4 +1,4 @@
-WORKFLOW_VERSION=v2.1.2
+WORKFLOW_VERSION=v2.1.4
 
 .PHONY: update-version
 update-version:
