@@ -44,7 +44,9 @@ runs:
       run: |
         echo "safe-image-id=$(echo "${{ inputs.image }}" | sed 's/[^a-zA-Z0-9.-]/-/g')" >> $GITHUB_OUTPUT
         RAW_IMAGE="${{ inputs.image }}"
-        echo "image-name=${RAW_IMAGE#'docker.io/'}" >> $GITHUB_OUTPUT
+        DOCKERLESS_IMAGE=${RAW_IMAGE#'docker.io/library/'}
+        DOCKERLESS_IMAGE=${DOCKERLESS_IMAGE#'docker.io/'}
+        echo "image-name=$DOCKERLESS_IMAGE" >> $GITHUB_OUTPUT
 
     # try only once to pull the aquasec image
     - name: Aquasec registry login

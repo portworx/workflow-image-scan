@@ -36,6 +36,9 @@ runs:
     id: prepare-input
     shell: bash
     run: |
+      RAW_IMAGE="${{ inputs.image }}"
+      DOCKERLESS_IMAGE=${RAW_IMAGE#'docker.io/library/'}
+      DOCKERLESS_IMAGE=${DOCKERLESS_IMAGE#'docker.io/'}
       echo "image-name=$(echo "${{ inputs.image }}" | cut -d: -f1)" >> $GITHUB_OUTPUT
       echo "image-tag=$(echo "${{ inputs.image }}" | cut -d: -f2)" >> $GITHUB_OUTPUT
       echo "safe-image-id=$(echo "${{ inputs.image }}" | sed 's/[^a-zA-Z0-9.-]/-/g')" >> $GITHUB_OUTPUT
