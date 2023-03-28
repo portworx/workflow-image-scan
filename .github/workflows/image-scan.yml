@@ -128,21 +128,13 @@ jobs:
     needs: [ lacework-scan, aqua-scan ]
     runs-on: ubuntu-latest
     steps:
-      - name: Download artifacts of the target branch
-        uses: dawidd6/action-download-artifact@v2.26.0
-        if: github.event_name == 'pull_request'
-        with:
-          branch: ${{ github.base_ref }}
-          path: ./oldArtifacts
-          
       - name: Download all results from artifacts
         uses: actions/download-artifact@v3
-        with:
-          path: ./newArtifacts
 
       - name: Build and set job summary
         shell: bash
         run: |
+          echo "foundIssues=0" >> $GITHUB_OUTPUT
           # Highlight number in table cell.
           _hln() {
             if [ ${1} -gt 0 ]; then
@@ -163,6 +155,8 @@ jobs:
               cveM=$(jq -r '.stats.Medium.total' $resultJSONFile)
               cveL=$(jq -r '.stats.Low.total' $resultJSONFile)
               cveI=$(jq -r '.stats.Info.total' $resultJSONFile)
+              
+              echo $resultJSONFile >> $GITHUB_STEP_SUMMARY
           
               echo "" >> $GITHUB_STEP_SUMMARY
               echo "### $image" >> $GITHUB_STEP_SUMMARY
@@ -205,8 +199,8 @@ jobs:
               fi
             done
           }
-          lwResultFiles="$(find ./newArtifacts -type f -name '*.lacework-result.json' | sort)"
-          aquaResultFiles="$(find ./newArtifacts -type f -name '*.aqua-result.json' | sort)"
+          lwResultFiles="$(find . -type f -name '*.lacework-result.json' | sort)"
+          aquaResultFiles="$(find . -type f -name '*.aqua-result.json' | sort)"
           echo "## <a name=\"scan-results\"></a>Lacework scan results" >> $GITHUB_STEP_SUMMARY
           summaryForScanner "$lwResultFiles" "lw"
           echo "## <a name=\"scan-results\"></a>Aqua scan results" >> $GITHUB_STEP_SUMMARY
@@ -252,13 +246,13 @@ jobs:
               echo "${1} :heavy_check_mark:"
             fi
           }   
-          lwResultFiles="$(find ./newArtifacts -type f -name '*.lacework-result.json' | sort)"
+          lwResultFiles="$(find . -type f -name '*.lacework-result.json' | sort)"
           
           setStatusIcon "$lwResultFiles"
           comment="### ${statusIcon}&nbsp; Lacework scan results:"
           createPRCommentTable "$lwResultFiles"
           
-          aquaResultFiles="$(find ./newArtifacts -type f -name '*.aqua-result.json' | sort)"
+          aquaResultFiles="$(find . -type f -name '*.aqua-result.json' | sort)"
           
           setStatusIcon "$aquaResultFiles"
           comment="${comment}\n### ${statusIcon}&nbsp; Aqua scan results:"
