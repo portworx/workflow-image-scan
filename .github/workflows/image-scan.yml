@@ -128,11 +128,15 @@ jobs:
     needs: [ lacework-scan, aqua-scan ]
     runs-on: ubuntu-latest
     steps:
-      - name: Download all results from artifacts
-        #uses: actions/download-artifact@v3
+      - name: Download artifacts of the target branch
         uses: dawidd6/action-download-artifact@v2.26.0
+        if: github.event_name == 'pull_request'
         with:
           branch: ${{ github.base_ref }}
+          path: ./artifacts
+          
+      - name: Download all results from artifacts
+        uses: actions/download-artifact@v3
 
       - name: Build and set job summary
         shell: bash
