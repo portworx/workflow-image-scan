@@ -156,7 +156,7 @@ jobs:
               cveL=$(jq -r '.stats.Low.total' $resultJSONFile)
               cveI=$(jq -r '.stats.Info.total' $resultJSONFile)
               
-              echo $resultJSONFile >> $GITHUB_STEP_SUMMARY
+              echo "$(cat $resultJSONFile)" >> $GITHUB_STEP_SUMMARY
           
               echo "" >> $GITHUB_STEP_SUMMARY
               echo "### $image" >> $GITHUB_STEP_SUMMARY
