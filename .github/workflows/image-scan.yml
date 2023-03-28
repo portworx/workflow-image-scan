@@ -133,10 +133,12 @@ jobs:
         if: github.event_name == 'pull_request'
         with:
           branch: ${{ github.base_ref }}
-          path: ./artifacts
+          path: ./oldArtifacts
           
       - name: Download all results from artifacts
         uses: actions/download-artifact@v3
+        with:
+          path: ./newArtifacts
 
       - name: Build and set job summary
         shell: bash
@@ -203,8 +205,8 @@ jobs:
               fi
             done
           }
-          lwResultFiles="$(find . -type f -name '*.lacework-result.json' | sort)"
-          aquaResultFiles="$(find . -type f -name '*.aqua-result.json' | sort)"
+          lwResultFiles="$(find ./newArtifacts -type f -name '*.lacework-result.json' | sort)"
+          aquaResultFiles="$(find ./newArtifacts -type f -name '*.aqua-result.json' | sort)"
           echo "## <a name=\"scan-results\"></a>Lacework scan results" >> $GITHUB_STEP_SUMMARY
           summaryForScanner "$lwResultFiles" "lw"
           echo "## <a name=\"scan-results\"></a>Aqua scan results" >> $GITHUB_STEP_SUMMARY
@@ -250,13 +252,13 @@ jobs:
               echo "${1} :heavy_check_mark:"
             fi
           }   
-          lwResultFiles="$(find . -type f -name '*.lacework-result.json' | sort)"
+          lwResultFiles="$(find ./newArtifacts -type f -name '*.lacework-result.json' | sort)"
           
           setStatusIcon "$lwResultFiles"
           comment="### ${statusIcon}&nbsp; Lacework scan results:"
           createPRCommentTable "$lwResultFiles"
           
-          aquaResultFiles="$(find . -type f -name '*.aqua-result.json' | sort)"
+          aquaResultFiles="$(find ./newArtifacts -type f -name '*.aqua-result.json' | sort)"
           
           setStatusIcon "$aquaResultFiles"
           comment="${comment}\n### ${statusIcon}&nbsp; Aqua scan results:"
