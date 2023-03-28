@@ -129,7 +129,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download all results from artifacts
-        uses: actions/download-artifact@v3
+        #uses: actions/download-artifact@v3
+        uses: dawidd6/action-download-artifact@v2.26.0
+        with:
+          branch: ${{ github.base_ref }}
 
       - name: Build and set job summary
         shell: bash
