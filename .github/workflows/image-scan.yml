@@ -328,7 +328,7 @@ jobs:
               console.log("No changes, nothing to do.")
             }
 
-  lacework-scan:
+  setup2:
     needs: [ evaluation ]
     runs-on: ubuntu-latest
     steps:
