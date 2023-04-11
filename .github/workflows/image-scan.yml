@@ -127,7 +127,6 @@ jobs:
   evaluate-results:
     needs: [ lacework-scan, aqua-scan ]
     runs-on: ubuntu-latest
-    id: evaluation
     steps:
       - name: Download all results from artifacts
         uses: actions/download-artifact@v3
@@ -329,7 +328,7 @@ jobs:
             }
 
   setup2:
-    needs: [ evaluation ]
+    needs: [ evaluate-results ]
     runs-on: ubuntu-latest
     steps:
       - id: setup2
