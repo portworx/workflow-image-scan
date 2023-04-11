@@ -211,11 +211,13 @@ jobs:
           summaryForScanner "$aquaResultFiles" "aqua"
 
       - name: Checkout code
+        if: steps.job-summary.outputs.vulnerable == 0
         uses: actions/checkout@v2
         with:
           ref: ${{ github.event.pull_request.base.ref }}
 
       - name: Get latest commit hash
+        if: steps.job-summary.outputs.vulnerable != 0
         id: hash
         run: |
           git fetch origin ${{ github.event.pull_request.base.ref }}
