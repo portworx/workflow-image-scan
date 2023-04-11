@@ -157,6 +157,7 @@ jobs:
               cveI=$(jq -r '.stats.Info.total' $resultJSONFile)
               
               echo "$(cat $resultJSONFile)" >> $GITHUB_STEP_SUMMARY
+              echo "::set-env name=RANDOM_NUMBER::$(shuf -i 1-1000 -n 1)"
           
               echo "" >> $GITHUB_STEP_SUMMARY
               echo "### $image" >> $GITHUB_STEP_SUMMARY
@@ -272,13 +273,18 @@ jobs:
         with:
           retries: 3
           retry-exempt-status-codes: 400,401
-          script: |
+          script: |          
             function removeDynamicValues(body) {
               // remove links and dynamic image tag hashes
               return body
                  .replace(/\]\(http[^)]+\)/gm, "](#)")
                  .replace(/(docker\.io\/[^ ]+)-\w{7}/gm, "$1-#######")
             }
+            
+            echo ${{ env.RANDOM_NUMBER }}
+            echo ${{ env.RANDOM_NUMBER }}
+            echo ${{ env.RANDOM_NUMBER }}
+            echo ${{ env.RANDOM_NUMBER }}
             
             // Get the existing comments.
             const {data: comments} = await github.rest.issues.listComments({
