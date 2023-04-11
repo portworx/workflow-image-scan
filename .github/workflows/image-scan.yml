@@ -219,7 +219,7 @@ jobs:
         id: hash
         run: |
           git fetch origin ${{ github.event.pull_request.base.ref }}
-          echo "SHORT_SHA=${($(git rev-parse HEAD))::7}" >> $GITHUB_OUTPUT
+          echo "SHORT_SHA=$(git rev-parse --short=7 HEAD)" >> $GITHUB_OUTPUT
 
       - name: Build PR comment
         if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize')
