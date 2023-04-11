@@ -283,8 +283,7 @@ jobs:
                  .replace(/\]\(http[^)]+\)/gm, "](#)")
                  .replace(/(docker\.io\/[^ ]+)-\w{7}/gm, "$1-#######")
             }
-          
-            echo "${{ steps.job-summary.outputs.vulnerable }}"
+
             echo "${{ steps.job-summary.outputs.vulnerable }}" >> $GITHUB_STEP_SUMMARY
             echo "${{ steps.job-summary.outputs.vulnerable }}" >> $GITHUB_STEP_SUMMARY
             echo "${{ steps.job-summary.outputs.vulnerable }}" >> $GITHUB_STEP_SUMMARY
