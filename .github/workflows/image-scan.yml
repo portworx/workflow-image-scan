@@ -328,12 +328,12 @@ jobs:
             }
 
   setup2:
-    needs: [ evaluate-results ]
+    needs: [setup, evaluate-results ]
     runs-on: ubuntu-latest
     steps:
       - id: setup2
         run: |
-          imagesJson=${{steps.setup.outputs.imagesJson}}
+          imagesJson=${{needs.setup.outputs.imagesJson}}
           imagesJson=$(echo $imagesJson | jq '. | map(.[:-7] + "1234567")')
           echo "imagesJson=$imagesJson" >> $GITHUB_OUTPUT
           echo $imagesJson >> $GITHUB_STEP_SUMMARY
