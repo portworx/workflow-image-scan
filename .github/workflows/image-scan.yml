@@ -210,6 +210,15 @@ jobs:
           echo "## <a name=\"scan-results\"></a>Aqua scan results" >> $GITHUB_STEP_SUMMARY
           summaryForScanner "$aquaResultFiles" "aqua"
 
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Get latest commit hash
+        id: hash
+        run: |
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          echo "SHORT_SHA=${$(git rev-parse origin/${{ github.event.pull_request.base.ref }})::7}" >> $GITHUB_OUTPUT
+
       - name: Build PR comment
         if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize')
         id: build-pr-comment
@@ -287,7 +296,9 @@ jobs:
             console.log("${{ steps.job-summary.outputs.vulnerable }}")
             console.log("${{ steps.job-summary.outputs.vulnerable }}")
             console.log("${{ steps.job-summary.outputs.vulnerable }}")
-            console.log("${{ steps.job-summary.outputs.vulnerable }}")
+            console.log("${{ steps.hash.outputs.SHORT_SHA }}")
+            console.log("${{ steps.hash.outputs.SHORT_SHA }}")
+            console.log("${{ steps.hash.outputs.SHORT_SHA }}")
             
             // Get the existing comments.
             const {data: comments} = await github.rest.issues.listComments({
