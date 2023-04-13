@@ -335,14 +335,16 @@ jobs:
         run: |
           imagesJson=${{needs.setup.outputs.imagesJson}}
           echo $imagesJson >> $GITHUB_STEP_SUMMARY
-          modifiedArray=()
-          for image in "${imagesJson[@]}"
-          do
-            echo $modifiedArray >> $GITHUB_STEP_SUMMARY
-            modifiedArray+=( "${image:0:-8}1234567" )
-            echo $modifiedArray >> $GITHUB_STEP_SUMMARY
+
+          IFS=',' read -ra images <<< "${imagesJson:1:-1}"
+
+          for i in "${!images[@]}"; do
+            echo $images >> $GITHUB_STEP_SUMMARY
+            images[$i]="${images[$i]::-7}1234567"
+            echo $images >> $GITHUB_STEP_SUMMARY
           done
-          echo $modifiedArray >> $GITHUB_STEP_SUMMARY
+          
+          echo $images >> $GITHUB_STEP_SUMMARY
           echo "imagesJson=$imagesJson" >> $GITHUB_OUTPUT
 
   # # Run Lacework scan for all images.
