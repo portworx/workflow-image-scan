@@ -338,7 +338,9 @@ jobs:
           modifiedArray=()
           for image in "${imagesJson[@]}"
           do
-              modifiedArray+=( "${image:0:-7}1234567" )
+            echo $modifiedArray >> $GITHUB_STEP_SUMMARY
+            modifiedArray+=( "${image:0:-8}1234567" )
+            echo $modifiedArray >> $GITHUB_STEP_SUMMARY
           done
           echo $modifiedArray >> $GITHUB_STEP_SUMMARY
           echo "imagesJson=$imagesJson" >> $GITHUB_OUTPUT
