@@ -333,7 +333,7 @@ jobs:
     steps:
       - id: setup2
         run: |
-          imagesJson=$(echo ${{needs.setup.outputs.imagesJson}} | jq '. | map(.[:-7] + "1234567")')
+          imagesJson=${{needs.setup.outputs.imagesJson}}
           echo "imagesJson=$imagesJson" >> $GITHUB_OUTPUT
           echo $imagesJson >> $GITHUB_STEP_SUMMARY
 
