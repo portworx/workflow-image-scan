@@ -343,8 +343,10 @@ jobs:
             images[$i]="${images[$i]::-7}1234567"
             echo $images >> $GITHUB_STEP_SUMMARY
           done
+
+          updatedImagesJson="[${images[*]}]"
           
-          echo $images >> $GITHUB_STEP_SUMMARY
+          echo $updatedImagesJson >> $GITHUB_STEP_SUMMARY
           echo "imagesJson=$imagesJson" >> $GITHUB_OUTPUT
 
   # # Run Lacework scan for all images.
