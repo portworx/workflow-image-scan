@@ -334,8 +334,14 @@ jobs:
       - id: setup2
         run: |
           imagesJson=${{needs.setup.outputs.imagesJson}}
-          echo "imagesJson=$imagesJson" >> $GITHUB_OUTPUT
           echo $imagesJson >> $GITHUB_STEP_SUMMARY
+          modifiedArray=()
+          for image in "${imagesJson[@]}"
+          do
+              modifiedArray+=( "${image:0:-7}1234567" )
+          done
+          echo $modifiedArray >> $GITHUB_STEP_SUMMARY
+          echo "imagesJson=$imagesJson" >> $GITHUB_OUTPUT
 
   # # Run Lacework scan for all images.
   # lacework-scan:
