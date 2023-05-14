@@ -355,77 +355,77 @@ jobs:
           echo $updatedImagesJson >> $GITHUB_STEP_SUMMARY
           echo "imagesJson=$imagesJson" >> $GITHUB_OUTPUT
 
-  # # Run Lacework scan for all images.
-  # lacework-scan:
-  #   needs: [ setup ]
-  #   runs-on: ubuntu-latest
-  #   strategy:
-  #     max-parallel: 4
-  #     matrix:
-  #       image: ${{fromJson(needs.setup.outputs.imagesJson)}}
-  #   steps:
-  #     - name: Call Lacework scan
-  #       id: run-scan
-  #       uses: portworx/workflow-image-scan/.github/actions/action-lacework-scan@v2.1.6
-  #       with:
-  #         image: ${{ matrix.image }}
-  #         docker-username: ${{ secrets.DOCKER_USERNAME }}
-  #         docker-password: ${{ secrets.DOCKER_PASSWORD }}
-  #         lw-account-name: ${{ secrets.LW_ACCOUNT_NAME }}
-  #         lw-access-token: ${{ secrets.LW_ACCESS_TOKEN }}
-  #       env:
-  #         ACTIONS_STEP_DEBUG: ${{ secrets.ACTIONS_STEP_DEBUG }}
+  # Run Lacework scan for all images.
+  lacework-scan2:
+    needs: [ setup2 ]
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 4
+      matrix:
+        image: ${{fromJson(needs.setup2.outputs.imagesJson)}}
+    steps:
+      - name: Call Lacework scan
+        id: run-scan
+        uses: portworx/workflow-image-scan/.github/actions/action-lacework-scan@v2.1.6
+        with:
+          image: ${{ matrix.image }}
+          docker-username: ${{ secrets.DOCKER_USERNAME }}
+          docker-password: ${{ secrets.DOCKER_PASSWORD }}
+          lw-account-name: ${{ secrets.LW_ACCOUNT_NAME }}
+          lw-access-token: ${{ secrets.LW_ACCESS_TOKEN }}
+        env:
+          ACTIONS_STEP_DEBUG: ${{ secrets.ACTIONS_STEP_DEBUG }}
 
-  #     - name: Prepare the result for saving
-  #       id: prepare-save
-  #       run: |
-  #         safeImageId=$(echo "${{ matrix.image }}" | sed 's/[^a-zA-Z0-9.-]/-/g')
-  #         fileName=${safeImageId}.lacework-result.json
-  #         echo '${{ steps.run-scan.outputs.result-json }}' > $fileName
-  #         echo "file-name=$fileName" >> $GITHUB_OUTPUT
+      - name: Prepare the result for saving
+        id: prepare-save
+        run: |
+          safeImageId=$(echo "${{ matrix.image }}" | sed 's/[^a-zA-Z0-9.-]/-/g')
+          fileName=${safeImageId}.lacework-result2.json
+          echo '${{ steps.run-scan.outputs.result-json }}' > $fileName
+          echo "file-name=$fileName" >> $GITHUB_OUTPUT
 
-  #     - name: Save the result as artifact
-  #       uses: actions/upload-artifact@v3
-  #       with:
-  #         name: ${{ steps.prepare-save.outputs.file-name }}
-  #         path: ${{ steps.prepare-save.outputs.file-name }}
-  #         if-no-files-found: error
+      - name: Save the result as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ steps.prepare-save.outputs.file-name }}
+          path: ${{ steps.prepare-save.outputs.file-name }}
+          if-no-files-found: error
 
-  # # Run Aqua scan for all images.
-  # aqua-scan:
-  #   needs: [ setup ]
-  #   runs-on: ubuntu-latest
-  #   strategy:
-  #     max-parallel: 4
-  #     matrix:
-  #       image: ${{fromJson(needs.setup.outputs.imagesJson)}}
-  #   steps:
-  #     - name: Call Aqua scan
-  #       id: run-scan
-  #       uses: portworx/workflow-image-scan/.github/actions/action-aqua-scan@v2.1.6
-  #       with:
-  #         image: ${{ matrix.image }}
-  #         docker-username: ${{ secrets.DOCKER_USERNAME }}
-  #         docker-password: ${{ secrets.DOCKER_PASSWORD }}
-  #         aqua-account-name: ${{ secrets.AQUA_ACCOUNT_NAME }}
-  #         aqua-account-password: ${{ secrets.AQUA_ACCOUNT_PASS }}
-  #         aqua-access-token: ${{ secrets.AQUA_ACCESS_TOKEN }}
-  #         aquasec-server-url: ${{ secrets.AQUASEC_SERVER_URL }}
-  #         aqua-image: ${{ secrets.AQUA_IMAGE }}
-  #       env:
-  #         ACTIONS_STEP_DEBUG: ${{ secrets.ACTIONS_STEP_DEBUG }}
+  # Run Aqua scan for all images.
+  aqua-scan2:
+    needs: [ setup2 ]
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 4
+      matrix:
+        image: ${{fromJson(needs.setup2.outputs.imagesJson)}}
+    steps:
+      - name: Call Aqua scan
+        id: run-scan
+        uses: portworx/workflow-image-scan/.github/actions/action-aqua-scan@v2.1.6
+        with:
+          image: ${{ matrix.image }}
+          docker-username: ${{ secrets.DOCKER_USERNAME }}
+          docker-password: ${{ secrets.DOCKER_PASSWORD }}
+          aqua-account-name: ${{ secrets.AQUA_ACCOUNT_NAME }}
+          aqua-account-password: ${{ secrets.AQUA_ACCOUNT_PASS }}
+          aqua-access-token: ${{ secrets.AQUA_ACCESS_TOKEN }}
+          aquasec-server-url: ${{ secrets.AQUASEC_SERVER_URL }}
+          aqua-image: ${{ secrets.AQUA_IMAGE }}
+        env:
+          ACTIONS_STEP_DEBUG: ${{ secrets.ACTIONS_STEP_DEBUG }}
 
-  #     - name: Prepare the result for saving
-  #       id: prepare-save
-  #       run: |
-  #         safeImageId=$(echo "${{ matrix.image }}" | sed 's/[^a-zA-Z0-9.-]/-/g')
-  #         fileName=${safeImageId}.aqua-result.json
-  #         echo '${{ steps.run-scan.outputs.result-json }}' > $fileName
-  #         echo "file-name=$fileName" >> $GITHUB_OUTPUT
+      - name: Prepare the result for saving
+        id: prepare-save
+        run: |
+          safeImageId=$(echo "${{ matrix.image }}" | sed 's/[^a-zA-Z0-9.-]/-/g')
+          fileName=${safeImageId}.aqua-result2.json
+          echo '${{ steps.run-scan.outputs.result-json }}' > $fileName
+          echo "file-name=$fileName" >> $GITHUB_OUTPUT
 
-  #     - name: Save the result as artifact
-  #       uses: actions/upload-artifact@v3
-  #       with:
-  #         name: ${{ steps.prepare-save.outputs.file-name }}
-  #         path: ${{ steps.prepare-save.outputs.file-name }}
-  #         if-no-files-found: error
+      - name: Save the result as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ steps.prepare-save.outputs.file-name }}
+          path: ${{ steps.prepare-save.outputs.file-name }}
+          if-no-files-found: error
