@@ -368,12 +368,12 @@ jobs:
 
   # Run Lacework scan for all images.
   lacework-scan2:
-    needs: [ setup2 ]
+    needs: [ setup, setup2 ]
     runs-on: ubuntu-latest
     strategy:
       max-parallel: 4
       matrix:
-        image: ${{fromJson(needs.setup2.outputs.imagesJson)}}
+        image: ${{fromJson(needs.setup.outputs.imagesJson)}}
     steps:
       - name: Call Lacework scan
         id: run-scan
