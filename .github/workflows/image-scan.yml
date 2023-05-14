@@ -332,8 +332,10 @@ jobs:
   setup2:
     needs: [setup, evaluate-results ]
     runs-on: ubuntu-latest
+    outputs:	
+      imagesJson: ${{ steps.setup.outputs.imagesJson }}
     steps:
-      - id: setup2
+      - id: setup
         run: |
           imagesJson=${{needs.setup.outputs.imagesJson}}
           echo $imagesJson >> $GITHUB_STEP_SUMMARY
