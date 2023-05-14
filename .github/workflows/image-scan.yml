@@ -336,10 +336,9 @@ jobs:
           imagesJson=${{needs.setup.outputs.imagesJson}}
           echo $imagesJson >> $GITHUB_STEP_SUMMARY
           
-          echo $needs.evaluate-results.outputs.SHORT_SHA >> $GITHUB_STEP_SUMMARY
-          echo $needs.evaluate-results.outputs.SHORT_SHA >> $GITHUB_STEP_SUMMARY
-          echo $needs.evaluate-results.outputs.SHORT_SHA >> $GITHUB_STEP_SUMMARY
-          
+          echo ${{needs.evaluate-results.outputs.SHORT_SHA}} >> $GITHUB_STEP_SUMMARY
+          echo ${{needs.evaluate-results.outputs.SHORT_SHA}} >> $GITHUB_STEP_SUMMARY
+          echo ${{needs.evaluate-results.outputs.SHORT_SHA}} >> $GITHUB_STEP_SUMMARY          
           
 
           IFS=',' read -ra images <<< "${imagesJson:1:-1}"
