@@ -39,6 +39,8 @@ on:
 jobs:
   # Setup for matrix run.
   setup:
+    outputs:	
+      imagesJson: ${{ steps.setup.outputs.imagesJson }}
     runs-on: ubuntu-latest
     steps:
       - id: setup
@@ -125,6 +127,8 @@ jobs:
   evaluate-results:
     needs: [ lacework-scan, aqua-scan ]
     runs-on: ubuntu-latest
+    outputs:	
+      SHORT_SHA: ${{ steps.hash.outputs.SHORT_SHA }}
     steps:
       - name: Download all results from artifacts
         uses: actions/download-artifact@v3
