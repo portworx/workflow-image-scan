@@ -345,7 +345,7 @@ jobs:
 
           IFS=',' read -ra images <<< "${imagesJson:1:-1}"
           for i in "${!images[@]}"; do
-            images[$i]="${images[$i]::-7}${needs.evaluate-results.outputs.SHORT_SHA}"
+            images[$i]="${images[$i]::-7}${{needs.evaluate-results.outputs.SHORT_SHA}}"
           done
 
           updatedImagesJson="[${images[*]}]"
