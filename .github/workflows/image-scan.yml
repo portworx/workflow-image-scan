@@ -333,9 +333,9 @@ jobs:
     needs: [setup, evaluate-results ]
     runs-on: ubuntu-latest
     outputs:	
-      imagesJson: ${{ steps.setup.outputs.imagesJson }}
+      imagesJson: ${{ steps.setup2.outputs.imagesJson }}
     steps:
-      - id: setup
+      - id: setup2
         run: |
           imagesJson=${{needs.setup.outputs.imagesJson}}
           echo $imagesJson >> $GITHUB_STEP_SUMMARY
@@ -351,11 +351,20 @@ jobs:
           done
 
           updatedImagesJson="[${images[*]}]"
-          echo $updatedImagesJson >> $GITHUB_STEP_SUMMARY
           updatedImagesJson="${updatedImagesJson// /,}"
-          
           echo $updatedImagesJson >> $GITHUB_STEP_SUMMARY
-          echo "imagesJson=$imagesJson" >> $GITHUB_OUTPUT
+
+          echo "imagesJson=$updatedImagesJson" >> $GITHUB_OUTPUT
+
+  test:
+    needs: [setup2]
+    runs-on: ubuntu-latest
+    steps:
+      - id: whatever
+        run: |
+          echo ${{needs.setup2.outputs.imagesJson}} >> $GITHUB_STEP_SUMMARY
+          echo ${{needs.setup2.outputs.imagesJson}} >> $GITHUB_STEP_SUMMARY
+          echo ${{needs.setup2.outputs.imagesJson}} >> $GITHUB_STEP_SUMMARY
 
   # Run Lacework scan for all images.
   lacework-scan2:
