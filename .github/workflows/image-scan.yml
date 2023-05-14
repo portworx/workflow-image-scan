@@ -515,8 +515,8 @@ jobs:
               fi
             done
           }
-          lwResultFiles="$(find . -type f -name '*.lacework-result.json' | sort)"
-          aquaResultFiles="$(find . -type f -name '*.aqua-result.json' | sort)"
+          lwResultFiles="$(find . -type f -name '*.lacework-result2.json' | sort)"
+          aquaResultFiles="$(find . -type f -name '*.aqua-result2.json' | sort)"
           echo "## <a name=\"scan-results\"></a>Lacework scan results" >> $GITHUB_STEP_SUMMARY
           summaryForScanner "$lwResultFiles" "lw"
           echo "## <a name=\"scan-results\"></a>Aqua scan results" >> $GITHUB_STEP_SUMMARY
@@ -562,13 +562,13 @@ jobs:
               echo "${1} :heavy_check_mark:"
             fi
           }   
-          lwResultFiles="$(find . -type f -name '*.lacework-result.json' | sort)"
+          lwResultFiles="$(find . -type f -name '*.lacework-result2.json' | sort)"
           
           setStatusIcon "$lwResultFiles"
           comment="### ${statusIcon}&nbsp; Lacework scan results:"
           createPRCommentTable "$lwResultFiles"
           
-          aquaResultFiles="$(find . -type f -name '*.aqua-result.json' | sort)"
+          aquaResultFiles="$(find . -type f -name '*.aqua-result2.json' | sort)"
           
           setStatusIcon "$aquaResultFiles"
           comment="${comment}\n### ${statusIcon}&nbsp; Aqua scan results:"
