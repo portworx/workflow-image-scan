@@ -349,9 +349,10 @@ jobs:
           for i in "${!images[@]}"; do
             images[$i]="${images[$i]::-7}${{needs.evaluate-results.outputs.SHORT_SHA}}"
           done
+          
+          updatedImagesJson="$(printf "\"%s\"," "${images[@]}")"
+          updatedImagesJson="[${updatedImagesJson%,}]"
 
-          updatedImagesJson="[${images[*]}]"
-          updatedImagesJson="${updatedImagesJson// /,}"
           echo $updatedImagesJson >> $GITHUB_STEP_SUMMARY
 
           echo "imagesJson=$updatedImagesJson" >> $GITHUB_OUTPUT
