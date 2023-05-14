@@ -40,8 +40,6 @@ jobs:
   # Setup for matrix run.
   setup:
     runs-on: ubuntu-latest
-    outputs:
-      imagesJson: ${{ steps.setup.outputs.imagesJson }}
     steps:
       - id: setup
         run: |
@@ -221,6 +219,9 @@ jobs:
         id: hash
         run: |
           git fetch origin ${{ github.event.pull_request.base.ref }}
+          echo $(git rev-parse --short=7 HEAD) >> $GITHUB_SUMMARY
+          echo $(git rev-parse --short=7 HEAD) >> $GITHUB_SUMMARY
+          echo $(git rev-parse --short=7 HEAD) >> $GITHUB_SUMMARY
           echo "SHORT_SHA=$(git rev-parse --short=7 HEAD)" >> $GITHUB_OUTPUT
 
       - name: Build PR comment
