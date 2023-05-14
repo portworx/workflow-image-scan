@@ -337,14 +337,13 @@ jobs:
           echo $imagesJson >> $GITHUB_STEP_SUMMARY
 
           IFS=',' read -ra images <<< "${imagesJson:1:-1}"
-
           for i in "${!images[@]}"; do
-            echo $images >> $GITHUB_STEP_SUMMARY
             images[$i]="${images[$i]::-7}1234567"
-            echo $images >> $GITHUB_STEP_SUMMARY
           done
 
           updatedImagesJson="[${images[*]}]"
+          echo $updatedImagesJson >> $GITHUB_STEP_SUMMARY
+          updatedImagesJson="${updatedImagesJson// /,}"
           
           echo $updatedImagesJson >> $GITHUB_STEP_SUMMARY
           echo "imagesJson=$imagesJson" >> $GITHUB_OUTPUT
