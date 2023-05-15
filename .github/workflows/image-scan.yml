@@ -523,9 +523,9 @@ jobs:
           comment="${comment}\n\n<sup>[Go to job summary for more details...]($runUrl)</sup>"
           
           # Set multiline output.
-          echo 'comment<<EOF' >> $GITHUB_OUTPUT
+          echo 'comment<<EEE' >> $GITHUB_OUTPUT
           echo -e "$comment" >> $GITHUB_OUTPUT
-          echo 'EOF' >> $GITHUB_OUTPUT
+          echo 'EEE' >> $GITHUB_OUTPUT
             
   # Add a PR comment if the contents changed
   add-pr-comment:
