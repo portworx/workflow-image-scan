@@ -139,6 +139,7 @@ jobs:
         shell: bash
         run: |
           echo "vulnerable=0" >> $GITHUB_OUTPUT
+          echo "vulnerable=1" >> $GITHUB_OUTPUT
           
           # Highlight number in table cell.
           _hln() {
@@ -562,7 +563,7 @@ jobs:
             
             const firstComment = `${{ needs.evaluate-results.outputs.comment }}`
             const secondComment = `${{ needs.evaluate-target-results.outputs.comment }}`
-            const newCommentBody = "${firstComment}\n${secondComment}"
+            const newCommentBody = "${{firstComment}}\n${{secondComment}}"
             
             if (!lastBotComment || removeDynamicValues(newCommentBody) !== removeDynamicValues(lastBotComment.body)) {
               // Add new comment.
