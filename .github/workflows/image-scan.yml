@@ -396,9 +396,6 @@ jobs:
         id: job-summary
         shell: bash
         run: |
-          echo "vulnerable=0" >> $GITHUB_OUTPUT
-          echo "vulnerable=1" >> $GITHUB_OUTPUT
-          
           # Highlight number in table cell.
           _hln() {
             if [ ${1} -gt 0 ]; then
@@ -433,7 +430,6 @@ jobs:
               # Print Vulnerability table (if not empty).
               cveCount=$(jq -r '.vulnerabilities | length' $resultJSONFile)
               if [ $cveCount -gt 0 ]; then
-                echo "vulnerable=1" >> $GITHUB_OUTPUT
                 if [ "$2" = "aqua" ]; then
                   echo "|Vulnerability|Severity|Package|Current version|Path|Fix version|" >> $GITHUB_STEP_SUMMARY
                   echo "|---|---|---|---|---|---|" >> $GITHUB_STEP_SUMMARY
@@ -514,7 +510,7 @@ jobs:
           lwResultFiles="$(find . -type f -name '*.lacework-result-target.json' | sort)"
           
           setStatusIcon "$lwResultFiles"
-          comment="${XXXXXXXXXX}\n### ${statusIcon}&nbsp; Target branch Lacework scan results:"
+          comment="$### ${statusIcon}&nbsp; Target branch Lacework scan results:"
           createPRCommentTable "$lwResultFiles"
           
           aquaResultFiles="$(find . -type f -name '*.aqua-result-target.json' | sort)"
