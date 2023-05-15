@@ -274,7 +274,7 @@ jobs:
           echo 'EOF' >> $GITHUB_OUTPUT
 
   setup-target:
-    needs: [ evaluate-results ]
+    needs: [ setup, evaluate-results ]
     if: needs.evaluate-results.outputs.vulnerable == 1
     runs-on: ubuntu-latest
     outputs:	
