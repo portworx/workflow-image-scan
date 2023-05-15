@@ -128,7 +128,8 @@ jobs:
     needs: [ lacework-scan, aqua-scan ]
     runs-on: ubuntu-latest
     outputs:	
-      SHORT_SHA: ${{ steps.hash.outputs.SHORT_SHA }}
+      vulnerable: ${{ steps.job-summary.outputs.vulnerable }}
+      comment: ${{ steps.build-pr-commment.outputs.comment }}
     steps:
       - name: Download all results from artifacts
         uses: actions/download-artifact@v3
@@ -137,8 +138,7 @@ jobs:
         id: job-summary
         shell: bash
         run: |
-          echo "foundIssues=0" >> $GITHUB_OUTPUT
-          echo "vulnerable=666" >> $GITHUB_OUTPUT
+          echo "vulnerable=0" >> $GITHUB_OUTPUT
           
           # Highlight number in table cell.
           _hln() {
@@ -272,6 +272,270 @@ jobs:
           echo -e "$comment" >> $GITHUB_OUTPUT
           echo 'EOF' >> $GITHUB_OUTPUT
 
+  setup-target:
+    needs: [ evaluate-results ]
+    if: needs.evaluate-results.outputs.vulnerable == 1
+    runs-on: ubuntu-latest
+    outputs:	
+      imagesJson: ${{ steps.setup2.outputs.imagesJson }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+
+      - name: Get latest commit hash
+        id: hash
+        run: |
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          echo "SHORT_SHA=$(git rev-parse --short=7 HEAD)" >> $GITHUB_OUTPUT
+
+      - id: setup
+        run: |
+          imagesJson=${{needs.setup.outputs.imagesJson}}       
+
+          IFS=',' read -ra images <<< "${imagesJson:1:-1}"
+          for i in "${!images[@]}"; do
+            images[$i]="${images[$i]::-7}${{needs.evaluate-results.outputs.SHORT_SHA}}"
+          done
+          
+          updatedImagesJson="$(printf "\"%s\"," "${images[@]}")"
+          updatedImagesJson="[${updatedImagesJson%,}]"
+
+          echo "imagesJson=$updatedImagesJson" >> $GITHUB_OUTPUT
+
+  # Run Lacework scan for all images.
+  lacework-scan-target:
+    needs: [ setup-target, evaluate-results ]
+    if: needs.evaluate-results.outputs.vulnerable == 1
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 4
+      matrix:
+        image: ${{fromJson(needs.setup-target.outputs.imagesJson)}}
+    steps:
+      - name: Call Lacework scan
+        id: run-scan
+        uses: portworx/workflow-image-scan/.github/actions/action-lacework-scan@v2.1.6
+        with:
+          image: ${{ matrix.image }}
+          docker-username: ${{ secrets.DOCKER_USERNAME }}
+          docker-password: ${{ secrets.DOCKER_PASSWORD }}
+          lw-account-name: ${{ secrets.LW_ACCOUNT_NAME }}
+          lw-access-token: ${{ secrets.LW_ACCESS_TOKEN }}
+        env:
+          ACTIONS_STEP_DEBUG: ${{ secrets.ACTIONS_STEP_DEBUG }}
+
+      - name: Prepare the result for saving
+        id: prepare-save
+        run: |
+          safeImageId=$(echo "${{ matrix.image }}" | sed 's/[^a-zA-Z0-9.-]/-/g')
+          fileName=${safeImageId}.lacework-result-target.json
+          echo '${{ steps.run-scan.outputs.result-json }}' > $fileName
+          echo "file-name=$fileName" >> $GITHUB_OUTPUT
+
+      - name: Save the result as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ steps.prepare-save.outputs.file-name }}
+          path: ${{ steps.prepare-save.outputs.file-name }}
+          if-no-files-found: error
+
+  # Run Aqua scan for all images.
+  aqua-scan-target:
+    needs: [ setup-target, evaluate-results ]
+    if: needs.evaluate-results.outputs.vulnerable == 1
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 4
+      matrix:
+        image: ${{fromJson(needs.setup-target.outputs.imagesJson)}}
+    steps:
+      - name: Call Aqua scan
+        id: run-scan
+        uses: portworx/workflow-image-scan/.github/actions/action-aqua-scan@v2.1.6
+        with:
+          image: ${{ matrix.image }}
+          docker-username: ${{ secrets.DOCKER_USERNAME }}
+          docker-password: ${{ secrets.DOCKER_PASSWORD }}
+          aqua-account-name: ${{ secrets.AQUA_ACCOUNT_NAME }}
+          aqua-account-password: ${{ secrets.AQUA_ACCOUNT_PASS }}
+          aqua-access-token: ${{ secrets.AQUA_ACCESS_TOKEN }}
+          aquasec-server-url: ${{ secrets.AQUASEC_SERVER_URL }}
+          aqua-image: ${{ secrets.AQUA_IMAGE }}
+        env:
+          ACTIONS_STEP_DEBUG: ${{ secrets.ACTIONS_STEP_DEBUG }}
+
+      - name: Prepare the result for saving
+        id: prepare-save
+        run: |
+          safeImageId=$(echo "${{ matrix.image }}" | sed 's/[^a-zA-Z0-9.-]/-/g')
+          fileName=${safeImageId}.aqua-result-target.json
+          echo '${{ steps.run-scan.outputs.result-json }}' > $fileName
+          echo "file-name=$fileName" >> $GITHUB_OUTPUT
+
+      - name: Save the result as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ steps.prepare-save.outputs.file-name }}
+          path: ${{ steps.prepare-save.outputs.file-name }}
+          if-no-files-found: error
+
+  # Evaluate scan results for the target branch.
+  evaluate-target-results:
+    needs: [ lacework-scan-target, aqua-scan-target ]
+    outputs:	
+      comment: ${{ steps.build-pr-commment.outputs.comment }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all results from artifacts
+        uses: actions/download-artifact@v3
+
+      - name: Build and set job summary
+        id: job-summary
+        shell: bash
+        run: |
+          echo "vulnerable=0" >> $GITHUB_OUTPUT
+          echo "vulnerable=1" >> $GITHUB_OUTPUT
+          
+          # Highlight number in table cell.
+          _hln() {
+            if [ ${1} -gt 0 ]; then
+              echo "**${1}** :x:"
+            else
+              echo "${1} :heavy_check_mark:"
+            fi
+          }
+          _jq() {
+            echo $row | jq -r ${1}
+          }
+          summaryForScanner() {
+            for resultJSONFile in $1; do
+              image=$(jq -r '.image' $resultJSONFile)
+              detailedArtifactName=$(echo $image | sed 's/[^a-zA-Z0-9.-]/-/g')-$2-scan-detailed-result.json
+              cveC=$(jq -r '.stats.Critical.total' $resultJSONFile)
+              cveH=$(jq -r '.stats.High.total' $resultJSONFile)
+              cveM=$(jq -r '.stats.Medium.total' $resultJSONFile)
+              cveL=$(jq -r '.stats.Low.total' $resultJSONFile)
+              cveI=$(jq -r '.stats.Info.total' $resultJSONFile)
+              
+              echo "$(cat $resultJSONFile)" >> $GITHUB_STEP_SUMMARY
+          
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "### $image" >> $GITHUB_STEP_SUMMARY
+              echo "###### Detailed scan result was stored as an artifact named: \`"$detailedArtifactName"\`" >> $GITHUB_STEP_SUMMARY
+              echo "| Critical | High | Medium | Low | Info |" >> $GITHUB_STEP_SUMMARY
+              echo "|---|---|---|---|---|" >> $GITHUB_STEP_SUMMARY
+              echo "| $(_hln $cveC) | $(_hln $cveH) | $cveM | $cveL | $cveI |" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+          
+              # Print Vulnerability table (if not empty).
+              cveCount=$(jq -r '.vulnerabilities | length' $resultJSONFile)
+              if [ $cveCount -gt 0 ]; then
+                echo "vulnerable=1" >> $GITHUB_OUTPUT
+                if [ "$2" = "aqua" ]; then
+                  echo "|Vulnerability|Severity|Package|Current version|Path|Fix version|" >> $GITHUB_STEP_SUMMARY
+                  echo "|---|---|---|---|---|---|" >> $GITHUB_STEP_SUMMARY
+                  for row in $(jq -r '.vulnerabilities[] | @base64' $resultJSONFile); do
+                    row=$(echo ${row} | base64 --decode)
+                    echo "| [$(_jq '.vulnId')]($(_jq '.link')) | $(_jq '.severity') | $(_jq '.package') | $(_jq '.currentVersion') | $(_jq '.path') | $(_jq '.fixVersion') |" >> $GITHUB_STEP_SUMMARY
+                  done
+                else
+                  echo "|Vulnerability|Severity|Package|Current version| Path |Fix version|Status|" >> $GITHUB_STEP_SUMMARY
+                  echo "|---|---|---|---|---|---|---|" >> $GITHUB_STEP_SUMMARY
+                  for row in $(jq -r '.vulnerabilities[] | @base64' $resultJSONFile); do
+                  row=$(echo ${row} | base64 --decode)
+                  echo "| [$(_jq '.vulnId')]($(_jq '.link')) | $(_jq '.severity') | $(_jq '.package') | $(_jq '.currentVersion') | $(_jq '.path') | $(_jq '.fixVersion') | $(_jq '.status') |" >> $GITHUB_STEP_SUMMARY
+                  done
+                fi
+              fi
+              policyFailureCount=$(jq -r '.policyFailures | length' $resultJSONFile)
+              if [ $policyFailureCount -gt 0 ]; then
+                echo "#### Policy failures" >> $GITHUB_STEP_SUMMARY
+                echo "|Policy Id| Policy Name |Blocking|" >> $GITHUB_STEP_SUMMARY
+                echo "|---|---|---|" >> $GITHUB_STEP_SUMMARY
+                for row in $(jq -r '.policyFailures[] | @base64' $resultJSONFile); do
+                  row=$(echo ${row} | base64 --decode)
+                  blocking=$(_jq '.blocking')
+                  blockingSign=$(if [ $blocking = "Yes" ]; then echo ":x:"; fi) 
+                  echo "| $(_jq '.policyId') | $(_jq '.policyName') | $blocking $blockingSign |" >> $GITHUB_STEP_SUMMARY
+                done
+              fi
+            done
+          }
+          lwResultFiles="$(find . -type f -name '*.lacework-result-target.json' | sort)"
+          aquaResultFiles="$(find . -type f -name '*.aqua-result-target.json' | sort)"
+          echo "## <a name=\"scan-results\"></a>Target branch Lacework scan results" >> $GITHUB_STEP_SUMMARY
+          summaryForScanner "$lwResultFiles" "lw"
+          echo "## <a name=\"scan-results\"></a>Target branch Aqua scan results" >> $GITHUB_STEP_SUMMARY
+          summaryForScanner "$aquaResultFiles" "aqua"
+
+      - name: Build PR comment
+        if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize')
+        id: build-pr-comment
+        shell: bash
+        run: |
+          createPRCommentTable() {
+            comment="${comment}\n| Image | Critical | High | Medium | Low | Info | Policy failures |"
+            comment="${comment}\n|---|---|---|---|---|---|---|"
+          
+            for resultJSONFile in $1; do
+              image=$(jq -r '.image' $resultJSONFile)
+              cveC=$(jq -r '.stats.Critical.total' $resultJSONFile)
+              cveH=$(jq -r '.stats.High.total' $resultJSONFile)
+              cveM=$(jq -r '.stats.Medium.total' $resultJSONFile)
+              cveL=$(jq -r '.stats.Low.total' $resultJSONFile)
+              cveI=$(jq -r '.stats.Info.total' $resultJSONFile)
+              policyFailures=$(jq -r '.policyFailures | length' $resultJSONFile)
+              comment="${comment}\n| ${image} | $(_hln $cveC) | $(_hln $cveH) | $cveM | $cveL | $cveI |  $(_hln $policyFailures) |"
+            done
+          }
+          setStatusIcon(){
+            statusIcon=":green_circle:"
+            for resultJSONFile in $1; do
+              cveC=$(jq -r '.stats.Critical.total' $resultJSONFile)
+              cveH=$(jq -r '.stats.High.total' $resultJSONFile)
+              policyFailures=$(jq -r '.policyFailures | length' $resultJSONFile)
+              if [ $cveC -gt 0 ] || [ $cveH -gt 0 ] || [ $policyFailures -gt 0 ]; then
+                statusIcon=":red_circle:"
+                break
+              fi
+            done       
+          }
+          # Highlight number in table cell.
+          _hln() {
+            if [ ${1} -gt 0 ]; then
+              echo "**${1}** :x:"
+            else
+              echo "${1} :heavy_check_mark:"
+            fi
+          }   
+          lwResultFiles="$(find . -type f -name '*.lacework-result-target.json' | sort)"
+          
+          setStatusIcon "$lwResultFiles"
+          comment="${XXXXXXXXXX}\n### ${statusIcon}&nbsp; Target branch Lacework scan results:"
+          createPRCommentTable "$lwResultFiles"
+          
+          aquaResultFiles="$(find . -type f -name '*.aqua-result-target.json' | sort)"
+          
+          setStatusIcon "$aquaResultFiles"
+          comment="${comment}\n### ${statusIcon}&nbsp; Target branch `Aqua scan results:"
+          createPRCommentTable "$aquaResultFiles"
+        
+          runUrl="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#user-content-scan-results"
+          comment="${comment}\n\n<sup>[Go to job summary for more details...]($runUrl)</sup>"
+          
+          # Set multiline output.
+          echo 'comment<<EOF' >> $GITHUB_OUTPUT
+          echo -e "$comment" >> $GITHUB_OUTPUT
+          echo 'EOF' >> $GITHUB_OUTPUT
+            
+  # Add a PR comment if the contents changed
+  add-pr-comment:
+    needs: [ evaluate-results, evaluate-target-results ]
+    if: ${{ always() && !cancelled() && !contains(needs.*.result, 'failure') }}
+    runs-on: ubuntu-latest
+    steps:
       - name: Add PR comment (if content changed)
         if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize')
         uses: actions/github-script@v6
@@ -296,7 +560,10 @@ jobs:
             // Find last bot comment.
             const lastBotComment = comments.slice().reverse().find(comment => comment.user.login === 'github-actions[bot]')
             
-            const newCommentBody = `${{ steps.build-pr-comment.outputs.comment }}`
+            const firstComment = `${{ needs.evaluate-results.outputs.comment }}`
+            const secondComment = `${{ needs.evaluate-target-results.outputs.comment }}`
+            const newCommentBody = "${firstComment}\n${secondComment}"
+            
             if (!lastBotComment || removeDynamicValues(newCommentBody) !== removeDynamicValues(lastBotComment.body)) {
               // Add new comment.
               await github.rest.issues.createComment({
@@ -308,273 +575,3 @@ jobs:
             } else {
               console.log("No changes, nothing to do.")
             }
-            
-      - name: Checkout code
-        if: steps.job-summary.outputs.vulnerable != 0
-        uses: actions/checkout@v2
-        with:
-          ref: ${{ github.event.pull_request.base.ref }}
-
-      - name: Get latest commit hash
-        if: steps.job-summary.outputs.vulnerable != 0
-        id: hash
-        run: |
-          git fetch origin ${{ github.event.pull_request.base.ref }}
-          echo "SHORT_SHA=$(git rev-parse --short=7 HEAD)" >> $GITHUB_OUTPUT
-
-  setup2:
-    needs: [ setup, evaluate-results ]
-    runs-on: ubuntu-latest
-    outputs:	
-      imagesJson: ${{ steps.setup2.outputs.imagesJson }}
-    steps:
-      - id: setup2
-        run: |
-          imagesJson=${{needs.setup.outputs.imagesJson}}       
-
-          IFS=',' read -ra images <<< "${imagesJson:1:-1}"
-          for i in "${!images[@]}"; do
-            images[$i]="${images[$i]::-7}${{needs.evaluate-results.outputs.SHORT_SHA}}"
-          done
-          
-          updatedImagesJson="$(printf "\"%s\"," "${images[@]}")"
-          updatedImagesJson="[${updatedImagesJson%,}]"
-
-          echo "imagesJson=$updatedImagesJson" >> $GITHUB_OUTPUT
-
-  # Run Lacework scan for all images.
-  lacework-scan2:
-    needs: [ setup2 ]
-    runs-on: ubuntu-latest
-    strategy:
-      max-parallel: 4
-      matrix:
-        image: ${{fromJson(needs.setup2.outputs.imagesJson)}}
-    steps:
-      - name: Call Lacework scan
-        id: run-scan
-        uses: portworx/workflow-image-scan/.github/actions/action-lacework-scan@v2.1.6
-        with:
-          image: ${{ matrix.image }}
-          docker-username: ${{ secrets.DOCKER_USERNAME }}
-          docker-password: ${{ secrets.DOCKER_PASSWORD }}
-          lw-account-name: ${{ secrets.LW_ACCOUNT_NAME }}
-          lw-access-token: ${{ secrets.LW_ACCESS_TOKEN }}
-        env:
-          ACTIONS_STEP_DEBUG: ${{ secrets.ACTIONS_STEP_DEBUG }}
-
-      - name: Prepare the result for saving
-        id: prepare-save
-        run: |
-          safeImageId=$(echo "${{ matrix.image }}" | sed 's/[^a-zA-Z0-9.-]/-/g')
-          fileName=${safeImageId}.lacework-result2.json
-          echo '${{ steps.run-scan.outputs.result-json }}' > $fileName
-          echo "file-name=$fileName" >> $GITHUB_OUTPUT
-
-      - name: Save the result as artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: ${{ steps.prepare-save.outputs.file-name }}
-          path: ${{ steps.prepare-save.outputs.file-name }}
-          if-no-files-found: error
-
-  # Run Aqua scan for all images.
-  aqua-scan2:
-    needs: [ setup2 ]
-    runs-on: ubuntu-latest
-    strategy:
-      max-parallel: 4
-      matrix:
-        image: ${{fromJson(needs.setup2.outputs.imagesJson)}}
-    steps:
-      - name: Call Aqua scan
-        id: run-scan
-        uses: portworx/workflow-image-scan/.github/actions/action-aqua-scan@v2.1.6
-        with:
-          image: ${{ matrix.image }}
-          docker-username: ${{ secrets.DOCKER_USERNAME }}
-          docker-password: ${{ secrets.DOCKER_PASSWORD }}
-          aqua-account-name: ${{ secrets.AQUA_ACCOUNT_NAME }}
-          aqua-account-password: ${{ secrets.AQUA_ACCOUNT_PASS }}
-          aqua-access-token: ${{ secrets.AQUA_ACCESS_TOKEN }}
-          aquasec-server-url: ${{ secrets.AQUASEC_SERVER_URL }}
-          aqua-image: ${{ secrets.AQUA_IMAGE }}
-        env:
-          ACTIONS_STEP_DEBUG: ${{ secrets.ACTIONS_STEP_DEBUG }}
-
-      - name: Prepare the result for saving
-        id: prepare-save
-        run: |
-          safeImageId=$(echo "${{ matrix.image }}" | sed 's/[^a-zA-Z0-9.-]/-/g')
-          fileName=${safeImageId}.aqua-result2.json
-          echo '${{ steps.run-scan.outputs.result-json }}' > $fileName
-          echo "file-name=$fileName" >> $GITHUB_OUTPUT
-
-      - name: Save the result as artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: ${{ steps.prepare-save.outputs.file-name }}
-          path: ${{ steps.prepare-save.outputs.file-name }}
-          if-no-files-found: error
-
-  # Evaluate scan results.
-  evaluate-results2:
-    needs: [ lacework-scan2, aqua-scan2 ]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download all results from artifacts
-        uses: actions/download-artifact@v3
-
-      - name: Build and set job summary
-        id: job-summary
-        shell: bash
-        run: |
-          echo "foundIssues=0" >> $GITHUB_OUTPUT
-          echo "vulnerable=666" >> $GITHUB_OUTPUT
-          
-          # Highlight number in table cell.
-          _hln() {
-            if [ ${1} -gt 0 ]; then
-              echo "**${1}** :x:"
-            else
-              echo "${1} :heavy_check_mark:"
-            fi
-          }
-          _jq() {
-            echo $row | jq -r ${1}
-          }
-          summaryForScanner() {
-            for resultJSONFile in $1; do
-              image=$(jq -r '.image' $resultJSONFile)
-              detailedArtifactName=$(echo $image | sed 's/[^a-zA-Z0-9.-]/-/g')-$2-scan-detailed-result.json
-              cveC=$(jq -r '.stats.Critical.total' $resultJSONFile)
-              cveH=$(jq -r '.stats.High.total' $resultJSONFile)
-              cveM=$(jq -r '.stats.Medium.total' $resultJSONFile)
-              cveL=$(jq -r '.stats.Low.total' $resultJSONFile)
-              cveI=$(jq -r '.stats.Info.total' $resultJSONFile)
-              
-              echo "$(cat $resultJSONFile)" >> $GITHUB_STEP_SUMMARY
-          
-              echo "" >> $GITHUB_STEP_SUMMARY
-              echo "### $image" >> $GITHUB_STEP_SUMMARY
-              echo "###### Detailed scan result was stored as an artifact named: \`"$detailedArtifactName"\`" >> $GITHUB_STEP_SUMMARY
-              echo "| Critical | High | Medium | Low | Info |" >> $GITHUB_STEP_SUMMARY
-              echo "|---|---|---|---|---|" >> $GITHUB_STEP_SUMMARY
-              echo "| $(_hln $cveC) | $(_hln $cveH) | $cveM | $cveL | $cveI |" >> $GITHUB_STEP_SUMMARY
-              echo "" >> $GITHUB_STEP_SUMMARY
-          
-              # Print Vulnerability table (if not empty).
-              cveCount=$(jq -r '.vulnerabilities | length' $resultJSONFile)
-              if [ $cveCount -gt 0 ]; then
-                echo "vulnerable=1" >> $GITHUB_OUTPUT
-                if [ "$2" = "aqua" ]; then
-                  echo "|Vulnerability|Severity|Package|Current version|Path|Fix version|" >> $GITHUB_STEP_SUMMARY
-                  echo "|---|---|---|---|---|---|" >> $GITHUB_STEP_SUMMARY
-                  for row in $(jq -r '.vulnerabilities[] | @base64' $resultJSONFile); do
-                    row=$(echo ${row} | base64 --decode)
-                    echo "| [$(_jq '.vulnId')]($(_jq '.link')) | $(_jq '.severity') | $(_jq '.package') | $(_jq '.currentVersion') | $(_jq '.path') | $(_jq '.fixVersion') |" >> $GITHUB_STEP_SUMMARY
-                  done
-                else
-                  echo "|Vulnerability|Severity|Package|Current version| Path |Fix version|Status|" >> $GITHUB_STEP_SUMMARY
-                  echo "|---|---|---|---|---|---|---|" >> $GITHUB_STEP_SUMMARY
-                  for row in $(jq -r '.vulnerabilities[] | @base64' $resultJSONFile); do
-                  row=$(echo ${row} | base64 --decode)
-                  echo "| [$(_jq '.vulnId')]($(_jq '.link')) | $(_jq '.severity') | $(_jq '.package') | $(_jq '.currentVersion') | $(_jq '.path') | $(_jq '.fixVersion') | $(_jq '.status') |" >> $GITHUB_STEP_SUMMARY
-                  done
-                fi
-              fi
-              policyFailureCount=$(jq -r '.policyFailures | length' $resultJSONFile)
-              if [ $policyFailureCount -gt 0 ]; then
-                echo "#### Policy failures" >> $GITHUB_STEP_SUMMARY
-                echo "|Policy Id| Policy Name |Blocking|" >> $GITHUB_STEP_SUMMARY
-                echo "|---|---|---|" >> $GITHUB_STEP_SUMMARY
-                for row in $(jq -r '.policyFailures[] | @base64' $resultJSONFile); do
-                  row=$(echo ${row} | base64 --decode)
-                  blocking=$(_jq '.blocking')
-                  blockingSign=$(if [ $blocking = "Yes" ]; then echo ":x:"; fi) 
-                  echo "| $(_jq '.policyId') | $(_jq '.policyName') | $blocking $blockingSign |" >> $GITHUB_STEP_SUMMARY
-                done
-              fi
-            done
-          }
-          lwResultFiles="$(find . -type f -name '*.lacework-result2.json' | sort)"
-          aquaResultFiles="$(find . -type f -name '*.aqua-result2.json' | sort)"
-          echo "## <a name=\"scan-results\"></a>Lacework scan results" >> $GITHUB_STEP_SUMMARY
-          summaryForScanner "$lwResultFiles" "lw"
-          echo "## <a name=\"scan-results\"></a>Aqua scan results" >> $GITHUB_STEP_SUMMARY
-          summaryForScanner "$aquaResultFiles" "aqua"
-
-      - name: Build PR comment
-        if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize')
-        id: build-pr-comment
-        shell: bash
-        run: |
-          createPRCommentTable() {
-            comment="${comment}\n| Image | Critical | High | Medium | Low | Info | Policy failures |"
-            comment="${comment}\n|---|---|---|---|---|---|---|"
-          
-            for resultJSONFile in $1; do
-              image=$(jq -r '.image' $resultJSONFile)
-              cveC=$(jq -r '.stats.Critical.total' $resultJSONFile)
-              cveH=$(jq -r '.stats.High.total' $resultJSONFile)
-              cveM=$(jq -r '.stats.Medium.total' $resultJSONFile)
-              cveL=$(jq -r '.stats.Low.total' $resultJSONFile)
-              cveI=$(jq -r '.stats.Info.total' $resultJSONFile)
-              policyFailures=$(jq -r '.policyFailures | length' $resultJSONFile)
-              comment="${comment}\n| ${image} | $(_hln $cveC) | $(_hln $cveH) | $cveM | $cveL | $cveI |  $(_hln $policyFailures) |"
-            done
-          }
-          setStatusIcon(){
-            statusIcon=":green_circle:"
-            for resultJSONFile in $1; do
-              cveC=$(jq -r '.stats.Critical.total' $resultJSONFile)
-              cveH=$(jq -r '.stats.High.total' $resultJSONFile)
-              policyFailures=$(jq -r '.policyFailures | length' $resultJSONFile)
-              if [ $cveC -gt 0 ] || [ $cveH -gt 0 ] || [ $policyFailures -gt 0 ]; then
-                statusIcon=":red_circle:"
-                break
-              fi
-            done       
-          }
-          # Highlight number in table cell.
-          _hln() {
-            if [ ${1} -gt 0 ]; then
-              echo "**${1}** :x:"
-            else
-              echo "${1} :heavy_check_mark:"
-            fi
-          }   
-          lwResultFiles="$(find . -type f -name '*.lacework-result2.json' | sort)"
-          
-          setStatusIcon "$lwResultFiles"
-          comment="### ${statusIcon}&nbsp; Lacework scan results:"
-          createPRCommentTable "$lwResultFiles"
-          
-          aquaResultFiles="$(find . -type f -name '*.aqua-result2.json' | sort)"
-          
-          setStatusIcon "$aquaResultFiles"
-          comment="${comment}\n### ${statusIcon}&nbsp; Aqua scan results:"
-          createPRCommentTable "$aquaResultFiles"
-        
-          runUrl="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#user-content-scan-results"
-          comment="${comment}\n\n<sup>[Go to job summary for more details...]($runUrl)</sup>"
-          
-          # Set multiline output.
-          echo 'comment<<EOF' >> $GITHUB_OUTPUT
-          echo -e "$comment" >> $GITHUB_OUTPUT
-          echo 'EOF' >> $GITHUB_OUTPUT
-
-      - name: Add PR comment
-        if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize')
-        uses: actions/github-script@v6
-        with:
-          retries: 3
-          retry-exempt-status-codes: 400,401
-          script: |          
-            const newCommentBody = `${{ steps.build-pr-comment.outputs.comment }}`
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.payload.number,
-              body: newCommentBody
-            })
