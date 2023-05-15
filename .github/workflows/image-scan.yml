@@ -560,11 +560,8 @@ jobs:
             
             // Find last bot comment.
             const lastBotComment = comments.slice().reverse().find(comment => comment.user.login === 'github-actions[bot]')
-            
-            const firstComment = `${{ needs.evaluate-results.outputs.comment }}`
-            const secondComment = `${{ needs.evaluate-target-results.outputs.comment }}`
-            const newCommentBody = "${{firstComment}}\n${{secondComment}}"
-            
+            const newCommentBody = "${{ needs.evaluate-results.outputs.comment }}\n${{ needs.evaluate-target-results.outputs.comment }}"
+
             if (!lastBotComment || removeDynamicValues(newCommentBody) !== removeDynamicValues(lastBotComment.body)) {
               // Add new comment.
               await github.rest.issues.createComment({
