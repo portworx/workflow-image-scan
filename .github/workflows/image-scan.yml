@@ -278,7 +278,7 @@ jobs:
     if: needs.evaluate-results.outputs.vulnerable == 1
     runs-on: ubuntu-latest
     outputs:	
-      imagesJson: ${{ steps.setup2.outputs.imagesJson }}
+      imagesJson: ${{ steps.setup.outputs.imagesJson }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
