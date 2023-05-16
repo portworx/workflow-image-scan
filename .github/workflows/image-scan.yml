@@ -161,8 +161,6 @@ jobs:
               cveM=$(jq -r '.stats.Medium.total' $resultJSONFile)
               cveL=$(jq -r '.stats.Low.total' $resultJSONFile)
               cveI=$(jq -r '.stats.Info.total' $resultJSONFile)
-              
-              echo "$(cat $resultJSONFile)" >> $GITHUB_STEP_SUMMARY
           
               echo "" >> $GITHUB_STEP_SUMMARY
               echo "### $image" >> $GITHUB_STEP_SUMMARY
@@ -521,6 +519,9 @@ jobs:
         
           runUrl="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#user-content-scan-results"
           comment="${comment}\n\n<sup>[Go to job summary for more details...]($runUrl)</sup>"
+          
+          
+          echo "${comment}" >> $GITHUB_STEP_SUMMARY
           
           # Set multiline output.
           echo 'comment2<<EOF' >> $GITHUB_OUTPUT
