@@ -384,7 +384,7 @@ jobs:
   evaluate-target-results:
     needs: [ lacework-scan-target, aqua-scan-target ]
     outputs:	
-      comment2: ${{ steps.build-pr-commment.outputs.comment2 }}
+      comment2: ${{ steps.build-pr-commment.outputs.comment }}
     runs-on: ubuntu-latest
     steps:
       - name: Download all results from artifacts
@@ -514,7 +514,7 @@ jobs:
           aquaResultFiles="$(find . -type f -name '*.aqua-result-target.json' | sort)"
           
           setStatusIcon "$aquaResultFiles"
-          comment="${comment}\n### ${statusIcon}&nbsp; Target branch `Aqua scan results:"
+          comment="${comment}\n### ${statusIcon}&nbsp; Target branch Aqua scan results:"
           createPRCommentTable "$aquaResultFiles"
         
           runUrl="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#user-content-scan-results"
@@ -524,7 +524,7 @@ jobs:
           echo "${comment}" >> $GITHUB_STEP_SUMMARY
           
           # Set multiline output.
-          echo 'comment2<<EOF' >> $GITHUB_OUTPUT
+          echo 'comment<<EOF' >> $GITHUB_OUTPUT
           echo -e "$comment" >> $GITHUB_OUTPUT
           echo 'EOF' >> $GITHUB_OUTPUT
             
