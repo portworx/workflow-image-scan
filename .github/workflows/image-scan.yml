@@ -532,6 +532,15 @@ jobs:
     if: ${{ always() && !cancelled() && !contains(needs.*.result, 'failure') }}
     runs-on: ubuntu-latest
     steps:
+      - name: Test
+        if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize')
+        shell: bash
+        run: |
+          echo "LOL" > $GITHUB_STEP_SUMMARY
+          echo '${{ needs.evaluate-results.outputs.comment }}' >> $GITHUB_STEP_SUMMARY
+          echo '${{ needs.evaluate-target-results.outputs.comment }}' > $GITHUB_STEP_SUMMARY
+          echo "LOL" > $GITHUB_STEP_SUMMARY
+        
       - name: Add PR comment (if content changed)
         if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize')
         uses: actions/github-script@v6
