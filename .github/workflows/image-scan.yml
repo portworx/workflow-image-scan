@@ -414,8 +414,6 @@ jobs:
               cveM=$(jq -r '.stats.Medium.total' $resultJSONFile)
               cveL=$(jq -r '.stats.Low.total' $resultJSONFile)
               cveI=$(jq -r '.stats.Info.total' $resultJSONFile)
-              
-              echo "$(cat $resultJSONFile)" >> $GITHUB_STEP_SUMMARY
           
               echo "" >> $GITHUB_STEP_SUMMARY
               echo "### $image" >> $GITHUB_STEP_SUMMARY
@@ -508,7 +506,7 @@ jobs:
           lwResultFiles="$(find . -type f -name '*.lacework-result-target.json' | sort)"
           
           setStatusIcon "$lwResultFiles"
-          comment="$### ${statusIcon}&nbsp; Target branch Lacework scan results:"
+          comment="### ${statusIcon}&nbsp; Target branch Lacework scan results:"
           createPRCommentTable "$lwResultFiles"
           
           aquaResultFiles="$(find . -type f -name '*.aqua-result-target.json' | sort)"
@@ -555,9 +553,16 @@ jobs:
               issue_number: context.payload.number,
             })
             
+            
+            echo '${{ needs.evaluate-results.outputs.comment }}' >> $GITHUB_STEP_SUMMARY
+            echo '${{ needs.evaluate-target-results.outputs.comment }}' > $GITHUB_STEP_SUMMARY
+            
+            
             // Find last bot comment.
             const lastBotComment = comments.slice().reverse().find(comment => comment.user.login === 'github-actions[bot]')
             const newCommentBody = "${{ needs.evaluate-results.outputs.comment }}\n${{ needs.evaluate-target-results.outputs.comment }}"
+
+            echo '${{ newCommentBody }}' > $GITHUB_STEP_SUMMARY
 
             if (!lastBotComment || removeDynamicValues(newCommentBody) !== removeDynamicValues(lastBotComment.body)) {
               // Add new comment.
