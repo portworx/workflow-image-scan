@@ -386,7 +386,7 @@ jobs:
   evaluate-target-results:
     needs: [ lacework-scan-target, aqua-scan-target ]
     outputs:	
-      comment: ${{ steps.build-pr-commment.outputs.comment }}
+      comment2: ${{ steps.build-pr-commment.outputs.comment2 }}
     runs-on: ubuntu-latest
     steps:
       - name: Download all results from artifacts
@@ -523,9 +523,9 @@ jobs:
           comment="${comment}\n\n<sup>[Go to job summary for more details...]($runUrl)</sup>"
           
           # Set multiline output.
-          echo 'comment<<EEE' >> $GITHUB_OUTPUT
+          echo 'comment2<<EOF' >> $GITHUB_OUTPUT
           echo -e "$comment" >> $GITHUB_OUTPUT
-          echo 'EEE' >> $GITHUB_OUTPUT
+          echo 'EOF' >> $GITHUB_OUTPUT
             
   # Add a PR comment if the contents changed
   add-pr-comment:
