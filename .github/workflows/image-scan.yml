@@ -553,6 +553,9 @@ jobs:
               issue_number: context.payload.number,
             })
             
+            console.log(${{ needs.evaluate-results.outputs.comment }})
+            console.log($needs.evaluate-results.outputs.comment)
+            console.log($needs.evaluate-results.outputs.comment)
             
             echo '${{ needs.evaluate-results.outputs.comment }}' >> $GITHUB_STEP_SUMMARY
             echo '$needs.evaluate-results.outputs.comment' >> $GITHUB_STEP_SUMMARY
