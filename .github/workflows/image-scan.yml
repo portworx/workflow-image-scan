@@ -555,14 +555,16 @@ jobs:
             
             
             echo '${{ needs.evaluate-results.outputs.comment }}' >> $GITHUB_STEP_SUMMARY
+            echo '$needs.evaluate-results.outputs.comment' >> $GITHUB_STEP_SUMMARY
             echo '${{ needs.evaluate-target-results.outputs.comment }}' > $GITHUB_STEP_SUMMARY
+            echo '$needs.evaluate-target-results.outputs.comment' > $GITHUB_STEP_SUMMARY
             
             
             // Find last bot comment.
             const lastBotComment = comments.slice().reverse().find(comment => comment.user.login === 'github-actions[bot]')
             const newCommentBody = "${{ needs.evaluate-results.outputs.comment }}\n${{ needs.evaluate-target-results.outputs.comment }}"
 
-            echo '${{ newCommentBody }}' > $GITHUB_STEP_SUMMARY
+            echo '$newCommentBody' > $GITHUB_STEP_SUMMARY
 
             if (!lastBotComment || removeDynamicValues(newCommentBody) !== removeDynamicValues(lastBotComment.body)) {
               // Add new comment.
