@@ -526,7 +526,7 @@ jobs:
   # Add a PR comment if the contents changed
   add-pr-comment:
     needs: [ evaluate-results, evaluate-target-results ]
-    if: ${{ always() && !cancelled() && !contains(needs.*.result, 'failure') }}
+    if: always() && !cancelled() && !contains(needs.*.result, 'failure')
     runs-on: ubuntu-latest
     steps:
       - name: Download comment
@@ -535,7 +535,7 @@ jobs:
           name: comment
 
       - name: Download comment-target
-        if: ${{ always() && !cancelled() && needs.evaluate-target-results.result == 'success' }}
+        if: always() && !cancelled() && needs.evaluate-target-results.result == 'success'
         uses: actions/download-artifact@v3
         with:
           name: comment-target
