@@ -560,7 +560,7 @@ jobs:
               repo: context.repo.repo,
               issue_number: context.payload.number,
             })
-
+            
             // Find last bot comment.
             const lastBotComment = comments.slice().reverse().find(comment => comment.user.login === 'github-actions[bot]')
             
