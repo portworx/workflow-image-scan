@@ -570,7 +570,7 @@ jobs:
               const commentTarget = fs.readFileSync('comment-target.txt', 'utf8');
               newCommentBody = `${newCommentBody}\n\n${commentTarget}`;
             }
-            newcommentBody = newcommentBody.replace(/\\n/g, "\n");
+            newCommentBody = newCommentBody.replace(/\\n/g, "\n");
 
             if (!lastBotComment || removeDynamicValues(newCommentBody) !== removeDynamicValues(lastBotComment.body)) {
               // Add new comment.
