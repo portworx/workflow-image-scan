@@ -569,10 +569,10 @@ jobs:
             // Find last bot comment.
             const lastBotComment = comments.slice().reverse().find(comment => comment.user.login === 'github-actions[bot]')
             
-            
-            comment=$(cat comment.txt)
-            comment_target=$(cat comment-target.txt)
-            newCommentBody="$comment\n\n$comment_target"
+            const comment = fs.readFileSync('comment.txt', 'utf8');
+            const commentTarget = fs.readFileSync('comment-target.txt', 'utf8');
+            const newCommentBody = `${comment}\n\n${commentTarget}`;
+            console.log(newCommentBody);
 
             if (!lastBotComment || removeDynamicValues(newCommentBody) !== removeDynamicValues(lastBotComment.body)) {
               // Add new comment.
