@@ -275,7 +275,7 @@ jobs:
       - name: Save the result as artifact
         uses: actions/upload-artifact@v3
         with:
-          name: comment.txt
+          name: comment
           path: comment.txt
           if-no-files-found: error
 
@@ -538,7 +538,7 @@ jobs:
       - name: Save the result as artifact
         uses: actions/upload-artifact@v3
         with:
-          name: comment-target.txt
+          name: comment-target
           path: comment-target.txt
           if-no-files-found: error
             
@@ -548,15 +548,25 @@ jobs:
     if: ${{ always() && !cancelled() && !contains(needs.*.result, 'failure') }}
     runs-on: ubuntu-latest
     steps:
-      - name: Download all results from artifacts
+      - name: Download comment
         uses: actions/download-artifact@v3
-        
+        with:
+          name: comment
+          
+      - name: Download comment-target
+        uses: actions/download-artifact@v3
+        with:
+          name: comment-target
+      
       - name: List downloaded artifacts
         run: ls ${{ github.workspace }}
         
       - name: Join Artifacts and Output
         id: join
         run: |
+          value=`cat comment.txt`
+          echo The result is $value
+          echo The result is $value >> $GITHUB_STEP_SUMMARY
           comment=$(cat comment.txt)
           comment_target=$(cat comment-target.txt)
           joined_comment="$comment $comment_target"
