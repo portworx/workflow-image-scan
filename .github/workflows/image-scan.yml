@@ -529,16 +529,16 @@ jobs:
     if: always() && !cancelled() && !contains(needs.*.result, 'failure')
     runs-on: ubuntu-latest
     steps:
+      - name: Download comment
+        uses: actions/download-artifact@v3
+        with:
+          name: comment
+
       - name: Whatever
         shell: bash
         run: |
           echo '${{ needs.evaluate-target-results.result }}' >> $GITHUB_STEP_SUMMARY
           echo '${{ needs }}' >> $GITHUB_STEP_SUMMARY
-    
-      - name: Download comment
-        uses: actions/download-artifact@v3
-        with:
-          name: comment
 
       - name: Download comment-target
         if: always() && !cancelled() && needs.evaluate-target-results.result == 'success'
