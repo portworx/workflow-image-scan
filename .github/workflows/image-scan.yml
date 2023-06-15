@@ -569,6 +569,7 @@ jobs:
             // Find last bot comment.
             const lastBotComment = comments.slice().reverse().find(comment => comment.user.login === 'github-actions[bot]')
             
+            const fs = require('fs');
             const comment = fs.readFileSync('comment.txt', 'utf8');
             const commentTarget = fs.readFileSync('comment-target.txt', 'utf8');
             const newCommentBody = `${comment}\n\n${commentTarget}`;
