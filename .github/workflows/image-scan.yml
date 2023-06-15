@@ -551,6 +551,9 @@ jobs:
       - name: Download all results from artifacts
         uses: actions/download-artifact@v3
         
+      - name: List downloaded artifacts
+        run: ls ${{ github.workspace }}
+        
       - name: Join Artifacts and Output
         id: join
         run: |
