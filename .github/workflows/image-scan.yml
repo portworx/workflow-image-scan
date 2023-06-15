@@ -265,11 +265,6 @@ jobs:
         
           runUrl="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#user-content-scan-results"
           comment="${comment}\n\n<sup>[Go to job summary for more details...]($runUrl)</sup>"
-          
-          # Set multiline output.
-          echo 'comment<<EOF' >> $GITHUB_OUTPUT
-          echo -e "$comment" >> $GITHUB_OUTPUT
-          echo 'EOF' >> $GITHUB_OUTPUT
           echo $comment > comment.txt
 
       - name: Save the result as artifact
@@ -525,14 +520,6 @@ jobs:
         
           runUrl="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#user-content-scan-results"
           comment="${comment}\n\n<sup>[Go to job summary for more details...]($runUrl)</sup>"
-          
-          
-          echo "${comment}" >> $GITHUB_STEP_SUMMARY
-          
-          # Set multiline output.
-          echo 'comment<<EOF' >> $GITHUB_OUTPUT
-          echo -e "$comment" >> $GITHUB_OUTPUT
-          echo 'EOF' >> $GITHUB_OUTPUT
           echo $comment > comment-target.txt
 
       - name: Save the result as artifact
@@ -586,7 +573,6 @@ jobs:
             comment=$(cat comment.txt)
             comment_target=$(cat comment-target.txt)
             newCommentBody="$comment\n\n$comment_target"
-            echo '$newCommentBody' > $GITHUB_STEP_SUMMARY
 
             if (!lastBotComment || removeDynamicValues(newCommentBody) !== removeDynamicValues(lastBotComment.body)) {
               // Add new comment.
