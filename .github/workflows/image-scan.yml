@@ -39,9 +39,9 @@ on:
 jobs:
   # Setup for matrix run.
   setup:
+    runs-on: ubuntu-latest
     outputs:	
       imagesJson: ${{ steps.setup.outputs.imagesJson }}
-    runs-on: ubuntu-latest
     steps:
       - id: setup
         run: |
@@ -129,7 +129,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:	
       vulnerable: ${{ steps.job-summary.outputs.vulnerable }}
-      comment: ${{ steps.build-pr-commment.outputs.comment }}
     steps:
       - name: Download all results from artifacts
         uses: actions/download-artifact@v3
@@ -383,8 +382,6 @@ jobs:
   # Evaluate scan results for the target branch.
   evaluate-target-results:
     needs: [ lacework-scan-target, aqua-scan-target ]
-    outputs:	
-      comment2: ${{ steps.build-pr-commment.outputs.comment }}
     runs-on: ubuntu-latest
     steps:
       - name: Download all results from artifacts
@@ -567,10 +564,12 @@ jobs:
             const lastBotComment = comments.slice().reverse().find(comment => comment.user.login === 'github-actions[bot]')
             
             const fs = require('fs');
-            const comment = fs.readFileSync('comment.txt', 'utf8');
-            const commentTarget = fs.readFileSync('comment-target.txt', 'utf8');
-            const newCommentBody = `${comment}\n\n${commentTarget}`.replace(/\\n/g, "\n");
-            console.log(newCommentBody);
+            let newCommentBody = fs.readFileSync('comment.txt', 'utf8');
+            if (fs.existsSync('comment-target.txt')) {
+              const commentTarget = fs.readFileSync('comment-target.txt', 'utf8');
+              newCommentBody = `${newCommentBody}\n\n${commentTarget}`;
+            }
+            newcommentBody = newcommentBody.replace(/\\n/g, "\n");
 
             if (!lastBotComment || removeDynamicValues(newCommentBody) !== removeDynamicValues(lastBotComment.body)) {
               // Add new comment.
