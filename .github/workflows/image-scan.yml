@@ -40,7 +40,7 @@ jobs:
   # Setup for matrix run.
   setup:
     runs-on: ubuntu-latest
-    outputs:	
+    outputs:
       imagesJson: ${{ steps.setup.outputs.imagesJson }}
     steps:
       - id: setup
