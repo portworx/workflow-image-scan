@@ -533,13 +533,13 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: comment
-          
+
       - name: Download comment-target
-        if: ${{ always() && !cancelled() && needs.evaluate-target-results.result == 'success' }}
+        if: ${{ always() && !cancelled() && needs.evaluate-target-results.result == 'success' && needs.evaluate-target-results.result != 'Skipped' }}
         uses: actions/download-artifact@v3
         with:
           name: comment-target
-        
+
       - name: Add PR comment (if content changed)
         if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize')
         uses: actions/github-script@v6
