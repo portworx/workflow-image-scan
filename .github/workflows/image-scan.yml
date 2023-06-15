@@ -557,17 +557,6 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: comment-target
-      
-      - name: List downloaded artifacts
-        run: ls ${{ github.workspace }}
-        
-      - name: Join Artifacts and Output
-        id: join
-        run: |
-          
-          echo The result is $value
-          echo The result is $value >> $GITHUB_STEP_SUMMARY
-          echo "JOINEDCOMMENT $joined_comment" >> $GITHUB_STEP_SUMMARY
         
       - name: Add PR comment (if content changed)
         if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize')
