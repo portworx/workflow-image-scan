@@ -564,33 +564,13 @@ jobs:
       - name: Join Artifacts and Output
         id: join
         run: |
-          value=`cat comment.txt`
+          
           echo The result is $value
           echo The result is $value >> $GITHUB_STEP_SUMMARY
           comment=$(cat comment.txt)
           comment_target=$(cat comment-target.txt)
           joined_comment="$comment $comment_target"
           echo "JOINEDCOMMENT $joined_comment" >> $GITHUB_STEP_SUMMARY
-
-      - name: Test
-        if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize')
-        shell: bash
-        run: |
-         contents=$(cat comment.txt)
-          echo "1" > $GITHUB_STEP_SUMMARY
-          echo '$(ls)' >> $GITHUB_STEP_SUMMARY
-          echo "2" > $GITHUB_STEP_SUMMARY
-          echo '${{ needs.evaluate-results.outputs.comment }}' >> $GITHUB_STEP_SUMMARY
-          echo "3" > $GITHUB_STEP_SUMMARY
-          echo '${{ needs.evaluate-target-results.outputs.comment }}' > $GITHUB_STEP_SUMMARY
-          echo "4" > $GITHUB_STEP_SUMMARY
-          echo `$(cat comment.txt)` > $GITHUB_STEP_SUMMARY
-          echo "5" > $GITHUB_STEP_SUMMARY
-          echo $(cat comment.txt) > $GITHUB_STEP_SUMMARY
-          echo "6" > $GITHUB_STEP_SUMMARY
-          echo '${{ needs.evaluate-target-results.outputs.comment }}' > $GITHUB_STEP_SUMMARY
-          echo '${{ needs.evaluate-target-results.outputs.comment }}' > $GITHUB_STEP_SUMMARY
-          echo "LOL" > $GITHUB_STEP_SUMMARY
         
       - name: Add PR comment (if content changed)
         if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize')
@@ -612,20 +592,13 @@ jobs:
               repo: context.repo.repo,
               issue_number: context.payload.number,
             })
-            
-            console.log(${{ needs.evaluate-results.outputs.comment }})
-            console.log($needs.evaluate-results.outputs.comment)
-            console.log($needs.evaluate-results.outputs.comment)
-            
-            echo '${{ needs.evaluate-results.outputs.comment }}' >> $GITHUB_STEP_SUMMARY
-            echo '$needs.evaluate-results.outputs.comment' >> $GITHUB_STEP_SUMMARY
-            echo '${{ needs.evaluate-target-results.outputs.comment }}' > $GITHUB_STEP_SUMMARY
-            echo '$needs.evaluate-target-results.outputs.comment' > $GITHUB_STEP_SUMMARY
-            
+      
+            comment=`cat comment.txt`
+            comment-target=`cat comment-target.txt`
             
             // Find last bot comment.
             const lastBotComment = comments.slice().reverse().find(comment => comment.user.login === 'github-actions[bot]')
-            const newCommentBody = "${{ needs.evaluate-results.outputs.comment }}\n${{ needs.evaluate-target-results.outputs.comment }}"
+            const newCommentBody = "$comment\n$comment-target"
 
             echo '$newCommentBody' > $GITHUB_STEP_SUMMARY
 
