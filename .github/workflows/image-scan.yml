@@ -572,7 +572,7 @@ jobs:
             const fs = require('fs');
             const comment = fs.readFileSync('comment.txt', 'utf8');
             const commentTarget = fs.readFileSync('comment-target.txt', 'utf8');
-            const newCommentBody = `${comment}\n\n${commentTarget}`.replace(/\n/g);
+            const newCommentBody = `${comment}\n\n${commentTarget}`.replace(/\\n/g, "\n");
             console.log(newCommentBody);
 
             if (!lastBotComment || removeDynamicValues(newCommentBody) !== removeDynamicValues(lastBotComment.body)) {
