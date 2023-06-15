@@ -555,11 +555,18 @@ jobs:
         if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize')
         shell: bash
         run: |
-          echo "LOL" > $GITHUB_STEP_SUMMARY
+         contents=$(cat comment.txt)
+          echo "1" > $GITHUB_STEP_SUMMARY
+          echo '$(ls)' >> $GITHUB_STEP_SUMMARY
+          echo "2" > $GITHUB_STEP_SUMMARY
           echo '${{ needs.evaluate-results.outputs.comment }}' >> $GITHUB_STEP_SUMMARY
+          echo "3" > $GITHUB_STEP_SUMMARY
           echo '${{ needs.evaluate-target-results.outputs.comment }}' > $GITHUB_STEP_SUMMARY
+          echo "4" > $GITHUB_STEP_SUMMARY
           echo `$(cat comment.txt)` > $GITHUB_STEP_SUMMARY
+          echo "5" > $GITHUB_STEP_SUMMARY
           echo $(cat comment.txt) > $GITHUB_STEP_SUMMARY
+          echo "6" > $GITHUB_STEP_SUMMARY
           echo '${{ needs.evaluate-target-results.outputs.comment }}' > $GITHUB_STEP_SUMMARY
           echo '${{ needs.evaluate-target-results.outputs.comment }}' > $GITHUB_STEP_SUMMARY
           echo "LOL" > $GITHUB_STEP_SUMMARY
