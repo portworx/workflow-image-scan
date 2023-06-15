@@ -276,7 +276,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: comment.txt
-          path: comments/
+          path: comment.txt
           if-no-files-found: error
 
   setup-target:
@@ -539,7 +539,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: comment-target.txt
-          path: comments/
+          path: comment-target.txt
           if-no-files-found: error
             
   # Add a PR comment if the contents changed
@@ -554,8 +554,8 @@ jobs:
       - name: Join Artifacts and Output
         id: join
         run: |
-          comment=$(cat artifacts/comment.txt)
-          comment_target=$(cat artifacts/comment-target.txt)
+          comment=$(cat comment.txt)
+          comment_target=$(cat comment-target.txt)
           joined_comment="$comment $comment_target"
           echo "JOINEDCOMMENT $joined_comment" >> $GITHUB_STEP_SUMMARY
 
