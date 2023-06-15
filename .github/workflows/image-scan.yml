@@ -535,6 +535,7 @@ jobs:
           name: comment
           
       - name: Download comment-target
+        if: ${{ !cancelled() && needs.evaluate-target-results.result == 'success' }}
         uses: actions/download-artifact@v3
         with:
           name: comment-target
