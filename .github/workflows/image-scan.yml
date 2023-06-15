@@ -567,9 +567,6 @@ jobs:
           
           echo The result is $value
           echo The result is $value >> $GITHUB_STEP_SUMMARY
-          comment=$(cat comment.txt)
-          comment_target=$(cat comment-target.txt)
-          joined_comment="$comment $comment_target"
           echo "JOINEDCOMMENT $joined_comment" >> $GITHUB_STEP_SUMMARY
         
       - name: Add PR comment (if content changed)
@@ -592,14 +589,14 @@ jobs:
               repo: context.repo.repo,
               issue_number: context.payload.number,
             })
-      
-            comment=`cat comment.txt`
-            comment-target=`cat comment-target.txt`
-            
+                  
             // Find last bot comment.
             const lastBotComment = comments.slice().reverse().find(comment => comment.user.login === 'github-actions[bot]')
-            const newCommentBody = "$comment\n$comment-target"
-
+            
+            
+            comment=$(cat comment.txt)
+            comment_target=$(cat comment-target.txt)
+            newCommentBody="$comment\n\n$comment_target"
             echo '$newCommentBody' > $GITHUB_STEP_SUMMARY
 
             if (!lastBotComment || removeDynamicValues(newCommentBody) !== removeDynamicValues(lastBotComment.body)) {
