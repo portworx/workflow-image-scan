@@ -534,12 +534,6 @@ jobs:
         with:
           name: comment
 
-      - name: Whatever
-        shell: bash
-        run: |
-          echo '${{ needs.evaluate-target-results.result }}' >> $GITHUB_STEP_SUMMARY
-          echo '${{ needs }}' >> $GITHUB_STEP_SUMMARY
-
       - name: Download comment-target
         if: always() && !cancelled() && needs.evaluate-target-results.result == 'success'
         uses: actions/download-artifact@v3
