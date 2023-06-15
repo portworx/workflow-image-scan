@@ -546,7 +546,7 @@ jobs:
         with:
           retries: 3
           retry-exempt-status-codes: 400,401
-          script: |          
+          script: |
             function removeDynamicValues(body) {
               // remove links and dynamic image tag hashes
               return body
@@ -560,7 +560,7 @@ jobs:
               repo: context.repo.repo,
               issue_number: context.payload.number,
             })
-                  
+
             // Find last bot comment.
             const lastBotComment = comments.slice().reverse().find(comment => comment.user.login === 'github-actions[bot]')
             
