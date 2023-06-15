@@ -137,10 +137,7 @@ jobs:
       - name: Build and set job summary
         id: job-summary
         shell: bash
-        run: |
-          echo "vulnerable=0" >> $GITHUB_OUTPUT
-          echo "vulnerable=1" >> $GITHUB_OUTPUT
-          
+        run: |          
           # Highlight number in table cell.
           _hln() {
             if [ ${1} -gt 0 ]; then
