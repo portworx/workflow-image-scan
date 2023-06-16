@@ -600,13 +600,17 @@ jobs:
             const aquaTargetResults = fs.readdirSync('.').filter(file => file.endsWith('.aqua-result-target.json'));
             const laceworkTargetResults = fs.readdirSync('.').filter(file => file.endsWith('.lacework-result-target.json'));
 
+
+            console.log("all lacework results")
             console.log(laceworkResults)
-            console.log("whatever")
-            console.log(fs.readdirSync('.'))
-            console.log("whatever")
 
             for (let i = 0; i < laceworkResults.length; i++) {
+
+              console.log("reading result")
+              console.log(laceworkResults[i])
               const resultsFile = fs.readFileSync(laceworkResults[i], 'utf8');
+              console.log("reading result")
+              console.log(laceworkTargetResults[i])
               const targetResultsFile = fs.readFileSync(laceworkTargetResults[i], 'utf8');
               const results = JSON.parse(resultsFile);
               const targetResults = JSON.parse(targetResultsFile);
