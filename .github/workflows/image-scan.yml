@@ -613,7 +613,7 @@ jobs:
               console.log(dir)
               console.log("reading dir")
               if (dir.isDirectory()) {
-                console.log(fs.readdirSync(dir, { withFileTypes: true }))
+                console.log(fs.readdirSync(dir.name, { withFileTypes: true }))
               }
             }
 
