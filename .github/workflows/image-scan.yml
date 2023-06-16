@@ -608,7 +608,15 @@ jobs:
               const targetResults = JSON.parse(targetResultsFile);
               const newVulnerabilities = onlyInLeft(results.vulnerabilities, targetResults.vulnerabilities);
               const removedVulnerabilities = onlyInLeft(targetResults.vulnerabilities, results.vulnerabilities);
-              
+              const totalTargetVulnerabilities = targetResults.vulnerabilities.length;
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.number,
+                body: `{laceworkResults[i]} and {laceworkTargetResults[i]}`
+              })
+
               console.log(laceworkResults[i])
               console.log(laceworkTargetResults[i])
               console.log(results.stats.Critical.total)
