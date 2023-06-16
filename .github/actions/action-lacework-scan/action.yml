@@ -62,7 +62,7 @@ runs:
       IMAGE_TAG: ${{ steps.prepare-input.outputs.image-tag }}
       SCAN_LIBRARY_PACKAGES: true
       SAVE_RESULTS_IN_LACEWORK: ${{ inputs.save-results-in-lacework }}
-      LW_SCANNER_ENABLE_DEBUGGING: ${{ env.ACTIONS_STEP_DEBUG }}
+      DEBUGGING: ${{ env.ACTIONS_STEP_DEBUG }}
 
   - name: Find scan results
     id: find-scan-results
