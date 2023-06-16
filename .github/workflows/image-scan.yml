@@ -571,11 +571,15 @@ jobs:
           retries: 3
           retry-exempt-status-codes: 400,401
           script: |
+            function isSameVulnerability(a, b) {
+              return JSON.stringify(a) === JSON.stringify(b);
+            } 
+
             function onlyInLeft(left, right) {
-            return left
-                    .filter(leftValue =>
-                      !right.some(rightValue => 
-                        compareFunction(JSON.stringify(leftValue), JSON.stringify(rightValue))));
+              return left
+                      .filter(leftValue =>
+                        !right.some(rightValue => 
+                          isSameVulnerability(JSON.stringify(leftValue), JSON.stringify(rightValue))));
             }
 
             function removeDynamicValues(body) {
@@ -591,6 +595,7 @@ jobs:
               repo: context.repo.repo,
               issue_number: context.payload.number,
             })
+
             
 
             // Read all scan results
@@ -603,6 +608,8 @@ jobs:
             for (let i = 0; i < laceworkResults.length; i++) {
               console.log("reading result")
               console.log(laceworkResults[i])
+              console.log("reading target")
+              console.log(laceworkTargetResults[i])
               
               resultsFile = fs.readFileSync(laceworkResults[i] + "/" + laceworkResults[i], 'utf8');
               targetResultsFile = fs.readFileSync(laceworkTargetResults[i] + "/" + laceworkTargetResults[i], 'utf8');
