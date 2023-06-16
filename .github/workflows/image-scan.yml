@@ -606,7 +606,16 @@ jobs:
 
             const getDirectories = fs.readdirSync('.', { withFileTypes: true })
             console.log("all stuff")
-            console.log(getDirectories)
+            // console.log(getDirectories)
+
+            for (let dir of getDirectories) {
+              console.log("dir name")
+              console.log(dir)
+              console.log("reading dir")
+              if (dir.isDirectory()) {
+                console.log(fs.readdirSync(dir, { withFileTypes: true }))
+              }
+            }
 
             console.log("all lacework results")
             console.log(laceworkResults)
