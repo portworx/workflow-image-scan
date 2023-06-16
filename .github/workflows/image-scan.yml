@@ -76,7 +76,7 @@ jobs:
           fileName=${safeImageId}.lacework-result.json
           echo '${{ steps.run-scan.outputs.result-json }}' > $fileName
           echo "file-name=$fileName" >> $GITHUB_OUTPUT
-          echo "artifact-name=$fileName%.json" >> $GITHUB_OUTPUT
+          echo "artifact-name=${fileName%.json}" >> $GITHUB_OUTPUT
 
       - name: Save the result as artifact
         uses: actions/upload-artifact@v3
@@ -116,7 +116,7 @@ jobs:
           fileName=${safeImageId}.aqua-result.json
           echo '${{ steps.run-scan.outputs.result-json }}' > $fileName
           echo "file-name=$fileName" >> $GITHUB_OUTPUT
-          echo "artifact-name=$fileName%.json" >> $GITHUB_OUTPUT
+          echo "artifact-name=${fileName%.json}" >> $GITHUB_OUTPUT
 
       - name: Save the result as artifact
         uses: actions/upload-artifact@v3
@@ -336,7 +336,7 @@ jobs:
           fileName=${safeImageId}.lacework-result-target.json
           echo '${{ steps.run-scan.outputs.result-json }}' > $fileName
           echo "file-name=$fileName" >> $GITHUB_OUTPUT
-          echo "artifact-name=$fileName%.json" >> $GITHUB_OUTPUT
+          echo "artifact-name=${fileName%.json}" >> $GITHUB_OUTPUT
 
       - name: Save the result as artifact
         uses: actions/upload-artifact@v3
@@ -377,7 +377,7 @@ jobs:
           fileName=${safeImageId}.aqua-result-target.json
           echo '${{ steps.run-scan.outputs.result-json }}' > $fileName
           echo "file-name=$fileName" >> $GITHUB_OUTPUT
-          echo "artifact-name=$fileName%.json" >> $GITHUB_OUTPUT
+          echo "artifact-name=${fileName%.json}" >> $GITHUB_OUTPUT
 
       - name: Save the result as artifact
         uses: actions/upload-artifact@v3
