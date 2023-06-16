@@ -604,6 +604,9 @@ jobs:
             const aquaTargetResults = fs.readdirSync('.').filter(file => file.endsWith('.aqua-result-target.json'));
             const laceworkTargetResults = fs.readdirSync('.').filter(file => file.endsWith('.lacework-result-target.json'));
 
+            const getDirectories = fs.readdirSync('.', { withFileTypes: true })
+            console.log("all stuff")
+            console.log(getDirectories)
 
             console.log("all lacework results")
             console.log(laceworkResults)
