@@ -603,8 +603,9 @@ jobs:
             console.log(laceworkResults)
             console.log("whatever")
             console.log(fs.readdirSync('.'))
+            console.log("whatever")
 
-            for (let i = 0; i < laceworkResults.Length; i++) {
+            for (let i = 0; i < laceworkResults.length; i++) {
               const resultsFile = fs.readFileSync(laceworkResults[i], 'utf8');
               const targetResultsFile = fs.readFileSync(laceworkTargetResults[i], 'utf8');
               const results = JSON.parse(resultsFile);
@@ -613,17 +614,11 @@ jobs:
               const removedVulnerabilities = onlyInLeft(targetResults.vulnerabilities, results.vulnerabilities);
               const totalTargetVulnerabilities = targetResults.vulnerabilities.length;
 
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.payload.number,
-                body: `{laceworkResults[i]} and {laceworkTargetResults[i]}`
-              })
-
               console.log(laceworkResults[i])
               console.log(laceworkTargetResults[i])
               console.log(results.stats.Critical.total)
               console.log(results.stats.High.total)
               console.log(newVulnerabilities)
               console.log(removedVulnerabilities)
+              console.log("whatever")
             }
