@@ -76,12 +76,11 @@ jobs:
           fileName=${safeImageId}.lacework-result.json
           echo '${{ steps.run-scan.outputs.result-json }}' > $fileName
           echo "file-name=$fileName" >> $GITHUB_OUTPUT
-          echo "artifact-name=${fileName%.json}" >> $GITHUB_OUTPUT
 
       - name: Save the result as artifact
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ steps.prepare-save.outputs.artifact-name }}
+          name: ${{ steps.prepare-save.outputs.file-name }}
           path: ${{ steps.prepare-save.outputs.file-name }}
           if-no-files-found: error
 
@@ -116,12 +115,11 @@ jobs:
           fileName=${safeImageId}.aqua-result.json
           echo '${{ steps.run-scan.outputs.result-json }}' > $fileName
           echo "file-name=$fileName" >> $GITHUB_OUTPUT
-          echo "artifact-name=${fileName%.json}" >> $GITHUB_OUTPUT
 
       - name: Save the result as artifact
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ steps.prepare-save.outputs.artifact-name }}
+          name: ${{ steps.prepare-save.outputs.file-name }}
           path: ${{ steps.prepare-save.outputs.file-name }}
           if-no-files-found: error
 
@@ -336,12 +334,11 @@ jobs:
           fileName=${safeImageId}.lacework-result-target.json
           echo '${{ steps.run-scan.outputs.result-json }}' > $fileName
           echo "file-name=$fileName" >> $GITHUB_OUTPUT
-          echo "artifact-name=${fileName%.json}" >> $GITHUB_OUTPUT
 
       - name: Save the result as artifact
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ steps.prepare-save.outputs.artifact-name }}
+          name: ${{ steps.prepare-save.outputs.file-name }}
           path: ${{ steps.prepare-save.outputs.file-name }}
           if-no-files-found: error
 
@@ -377,12 +374,11 @@ jobs:
           fileName=${safeImageId}.aqua-result-target.json
           echo '${{ steps.run-scan.outputs.result-json }}' > $fileName
           echo "file-name=$fileName" >> $GITHUB_OUTPUT
-          echo "artifact-name=${fileName%.json}" >> $GITHUB_OUTPUT
 
       - name: Save the result as artifact
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ steps.prepare-save.outputs.artifact-name }}
+          name: ${{ steps.prepare-save.outputs.file-name }}
           path: ${{ steps.prepare-save.outputs.file-name }}
           if-no-files-found: error
 
@@ -604,41 +600,29 @@ jobs:
             const aquaTargetResults = fs.readdirSync('.').filter(file => file.endsWith('.aqua-result-target.json'));
             const laceworkTargetResults = fs.readdirSync('.').filter(file => file.endsWith('.lacework-result-target.json'));
 
-            const getDirectories = fs.readdirSync('.', { withFileTypes: true })
-            console.log("all stuff")
-            // console.log(getDirectories)
-
-            for (let dir of getDirectories) {
-              console.log("dir name")
-              console.log(dir)
-              console.log("reading dir")
-              if (dir.isDirectory()) {
-                console.log(fs.readdirSync(dir.name, { withFileTypes: true }))
-              }
-            }
-
-            console.log("all lacework results")
-            console.log(laceworkResults)
-
             for (let i = 0; i < laceworkResults.length; i++) {
-
               console.log("reading result")
               console.log(laceworkResults[i])
-              const resultsFile = fs.readFileSync(laceworkResults[i], 'utf8');
-              console.log("reading result")
-              console.log(laceworkTargetResults[i])
-              const targetResultsFile = fs.readFileSync(laceworkTargetResults[i], 'utf8');
+              
+              resultsFile = fs.readFileSync(laceworkResults[i] + "/" + laceworkResults[i], 'utf8');
+              targetResultsFile = fs.readFileSync(laceworkTargetResults[i] + "/" + laceworkTargetResults[i], 'utf8');
+
               const results = JSON.parse(resultsFile);
               const targetResults = JSON.parse(targetResultsFile);
+
               const newVulnerabilities = onlyInLeft(results.vulnerabilities, targetResults.vulnerabilities);
               const removedVulnerabilities = onlyInLeft(targetResults.vulnerabilities, results.vulnerabilities);
               const totalTargetVulnerabilities = targetResults.vulnerabilities.length;
 
               console.log(laceworkResults[i])
               console.log(laceworkTargetResults[i])
+              console.log("whatever")
               console.log(results.stats.Critical.total)
+              console.log("whatever")
               console.log(results.stats.High.total)
+              console.log("whatever")
               console.log(newVulnerabilities)
+              console.log("whatever")
               console.log(removedVulnerabilities)
               console.log("whatever")
             }
