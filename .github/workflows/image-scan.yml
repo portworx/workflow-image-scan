@@ -573,11 +573,11 @@ jobs:
               return JSON.stringify(a) === JSON.stringify(b);
             } 
 
-            function onlyInLeft(left, right, comparator) {
+            function onlyInLeft(left, right) {
               return left
                       .filter(leftValue =>
                         !right.some(rightValue => 
-                          comparator(leftValue, rightValue)));
+                          isSameVulnerability(leftValue, rightValue)));
             }
 
             function removeDynamicValues(body) {
@@ -600,8 +600,8 @@ jobs:
                 return { newVulnerabilitiesBody, removedVulnerabilitiesBody };
               }
 
-              const newVulnerabilities = onlyInLeft(results.vulnerabilities, targetResults.vulnerabilities, isSameVulnerability);
-              const removedVulnerabilities = onlyInLeft(targetResults.vulnerabilities, results.vulnerabilities, isSameVulnerability);
+              const newVulnerabilities = onlyInLeft(results.vulnerabilities, targetResults.vulnerabilities);
+              const removedVulnerabilities = onlyInLeft(targetResults.vulnerabilities, results.vulnerabilities);
 
               if (newVulnerabilities.length > 0) {
                 newVulnerabilitiesBody = newVulnerabilitiesBody + newVulnerabilities.map(v => `\n| ${v.image} | ${scannerName} | ${v.severity} | ${v.package} | ${v.version} |`).join("")
@@ -662,27 +662,26 @@ jobs:
             if (comment.length == 0) {
               comment = "No vulnerabilities were added or removed by this PR."
             }
-            else {
-              runUrl="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#user-content-scan-results"
-              comment="${comment}\n\n<sup>[Go to job summary for more details...]($runUrl)</sup>"
+            
+            runUrl="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#user-content-scan-results"
+            comment="${comment}\n\n<sup>[Go to job summary for more details...]($runUrl)</sup>"
 
-              const {data: comments} = await github.rest.issues.listComments({
+            const {data: comments} = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.number,
+            })
+
+            const lastBotComment = comments.slice().reverse().find(c => c.user.login === 'github-actions[bot]')
+            if (!lastBotComment || removeDynamicValues(lastBotComment.body) !== removeDynamicValues(comment)) {
+              await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: context.payload.number,
+                body: comment
               })
-
-              const lastBotComment = comments.slice().reverse().find(c => c.user.login === 'github-actions[bot]')
-              if (!lastBotComment || removeDynamicValues(lastBotComment.body) !== removeDynamicValues(comment)) {
-                await github.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: context.payload.number,
-                  body: comment
-                })
-              } else {
-                console.log("No changes, nothing to do.")
-              }
+            } else {
+              console.log("No changes, nothing to do.")
             }
 
 
