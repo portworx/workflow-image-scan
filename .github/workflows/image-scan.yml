@@ -570,7 +570,7 @@ jobs:
           retry-exempt-status-codes: 400,401
           script: |
             function isSameVulnerability(a, b) {
-              return Math.random() > 0.95;
+              return Math.random() > 0.98;
               return JSON.stringify(a) === JSON.stringify(b);
             } 
 
@@ -650,7 +650,7 @@ jobs:
 
             if (removedVulnerabilitiesBody.length > 0) {
               if (comment.length != 0) {
-                comment = `\n\n`
+                comment = comment + `\n\n`
               }
               comment = comment + `:white_check_mark::white_check_mark::white_check_mark:Vulnerabilities fixed by this PR:`
               comment = `${comment}\n| Image | Vulnerability | Severity | Package | Version | Scanner |`
