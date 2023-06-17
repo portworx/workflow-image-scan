@@ -570,7 +570,7 @@ jobs:
           retry-exempt-status-codes: 400,401
           script: |
             function isSameVulnerability(a, b) {
-              return Math.random() > 0.5;
+              return Math.random() > 0.7;
               return JSON.stringify(a) === JSON.stringify(b);
             } 
 
