@@ -605,10 +605,10 @@ jobs:
               const removedVulnerabilities = onlyInLeft(targetResults.vulnerabilities, results.vulnerabilities);
 
               if (newVulnerabilities.length > 0) {
-                newVulnerabilitiesBody = newVulnerabilitiesBody + newVulnerabilities.map(v => `\n${file.image} | [${v.vulnId}](${v.link}) | ${v.severity} | ${v.package} | ${v.currentVersion} |${scannerName} |`).join("")
+                newVulnerabilitiesBody = newVulnerabilitiesBody + newVulnerabilities.map(v => `\n${results.image} | [${v.vulnId}](${v.link}) | ${v.severity} | ${v.package} | ${v.currentVersion} |${scannerName} |`).join("")
               }
               if (removedVulnerabilities.length > 0) {
-                removedVulnerabilitiesBody = removedVulnerabilitiesBody + removedVulnerabilities.map(v => `\n${file.image} | [${v.vulnId}](${v.link}) | ${v.severity} | ${v.package} | ${v.currentVersion} | ${scannerName} |`).join("")
+                removedVulnerabilitiesBody = removedVulnerabilitiesBody + removedVulnerabilities.map(v => `\n${results.image} | [${v.vulnId}](${v.link}) | ${v.severity} | ${v.package} | ${v.currentVersion} | ${scannerName} |`).join("")
               }
 
               return { newVulnerabilitiesBody, removedVulnerabilitiesBody };
@@ -649,7 +649,7 @@ jobs:
             }
 
             if (removedVulnerabilitiesBody.length > 0) {
-              if (comment.length == 0) {
+              if (comment.length != 0) {
                 comment = `\n\n`
               }
               comment = comment + `:white_check_mark::white_check_mark::white_check_mark:Vulnerabilities fixed by this PR:`
