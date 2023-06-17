@@ -605,10 +605,10 @@ jobs:
               const removedVulnerabilities = onlyInLeft(targetResults.vulnerabilities, results.vulnerabilities);
 
               if (newVulnerabilities.length > 0) {
-                newVulnerabilitiesBody = newVulnerabilitiesBody + newVulnerabilities.map(v => `\n| ${v.image} | ${scannerName} | ${v.severity} | ${v.package} | ${v.version} |`).join("")
+                newVulnerabilitiesBody = newVulnerabilitiesBody + newVulnerabilities.map(v => `\n${file.image} | [${v.vulnId}](${v.link}) | ${v.severity} | ${v.package} | ${v.currentVersion} |${scannerName} |`).join("")
               }
               if (removedVulnerabilities.length > 0) {
-                removedVulnerabilitiesBody = removedVulnerabilitiesBody + removedVulnerabilities.map(v => `\n| ${v.image} | ${scannerName} | ${v.severity} | ${v.package} | ${v.version} |`).join("")
+                removedVulnerabilitiesBody = removedVulnerabilitiesBody + removedVulnerabilities.map(v => `\n${file.image} | [${v.vulnId}](${v.link}) | ${v.severity} | ${v.package} | ${v.currentVersion} | ${scannerName} |`).join("")
               }
 
               return { newVulnerabilitiesBody, removedVulnerabilitiesBody };
@@ -642,21 +642,24 @@ jobs:
             let comment = ""
 
             if (newVulnerabilitiesBody.length > 0) {
-              comment = `New Vulnerabilities found in this PR. :x:`
-              comment = `${comment}\n| Image | Scanner | Severity | Package | Version |`
-              comment = `${comment}\n|---|---|---|---|---|`
-              comment = `${comment}${newVulnerabilitiesBody}\n\n`
+              comment = `:exclamation::exclamation::exclamation:New vulnerabilities introduced by this PR:`
+              comment = `${comment}\n| Image | Vulnerability | Severity | Package | Version | Scanner |`
+              comment = `${comment}\n|---|---|---|---|---|---|`
+              comment = `${comment}${newVulnerabilitiesBody}`
             }
 
             if (removedVulnerabilitiesBody.length > 0) {
-              comment = `Vulnerabilities removed in this PR. :heavy_check_mark:`
-              comment = `${comment}\n| Image | Scanner | Severity | Package | Version |`
-              comment = `${comment}\n|---|---|---|---|---|`
+              if (comment.length == 0) {
+                comment = `\n\n`
+              }
+              comment = comment + `:white_check_mark::white_check_mark::white_check_mark:Vulnerabilities fixed by this PR:`
+              comment = `${comment}\n| Image | Vulnerability | Severity | Package | Version | Scanner |`
+              comment = `${comment}\n|---|---|---|---|---|---|`
               comment = `${comment}${removedVulnerabilitiesBody}`
             }
 
             if (comment.length == 0) {
-              comment = `No vulnerabilities were added or removed by this PR.`
+              comment = `No vulnerabilities were added nor fixed by this PR.`
             }
             
             runUrl = `${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#user-content-scan-results`
@@ -667,8 +670,6 @@ jobs:
               repo: context.repo.repo,
               issue_number: context.payload.number,
             })
-
-            console.log(comment);
 
             const lastBotComment = comments.slice().reverse().find(c => c.user.login === 'github-actions[bot]')
             if (!lastBotComment || removeDynamicValues(lastBotComment.body) !== removeDynamicValues(comment)) {
