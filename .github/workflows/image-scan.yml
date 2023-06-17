@@ -612,13 +612,6 @@ jobs:
 
               return { newVulnerabilitiesBody, removedVulnerabilitiesBody };
             }
-            
-            // Get the existing comments.
-            const {data: comments} = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.payload.number,
-            })
 
             // Read all scan results
             const fs = require('fs');
@@ -626,7 +619,6 @@ jobs:
             const aquaTargetFileNames = fs.readdirSync('.').filter(file => file.endsWith('.aqua-result-target.json'));
             const laceworkFileNames = fs.readdirSync('.').filter(file => file.endsWith('.lacework-result.json'));
             const laceworkTargetFileNames = fs.readdirSync('.').filter(file => file.endsWith('.lacework-result-target.json'));
-
 
             let newVulnerabilitiesBody = "";
             let removedVulnerabilitiesBody = "";
@@ -641,7 +633,7 @@ jobs:
 
               let result = getDiffComments(laceworkFileName, targetLaceworkFileName, "Lacework", newVulnerabilitiesBody, removedVulnerabilitiesBody);
               result = getDiffComments(aquaFileName, targetAquaFileName, "Aqua", result.newVulnerabilitiesBody, result.removedVulnerabilitiesBody);
-              
+
               newVulnerabilitiesBody = result.newVulnerabilitiesBody;
               removedVulnerabilitiesBody = result.removedVulnerabilitiesBody;
             }
