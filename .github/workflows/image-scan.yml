@@ -556,7 +556,7 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: context.payload.number,
-                body: "${comment}"
+                body: comment
               })
             } else {
               console.log("No changes, nothing to do.")
@@ -667,13 +667,15 @@ jobs:
               issue_number: context.payload.number,
             })
 
+            console.log(comment);
+
             const lastBotComment = comments.slice().reverse().find(c => c.user.login === 'github-actions[bot]')
             if (!lastBotComment || removeDynamicValues(lastBotComment.body) !== removeDynamicValues(comment)) {
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: context.payload.number,
-                body: "${comment}"
+                body: comment
               })
             } else {
               console.log("No changes, nothing to do.")
