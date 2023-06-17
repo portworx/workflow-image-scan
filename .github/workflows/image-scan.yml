@@ -627,7 +627,7 @@ jobs:
               // 28 is the length of the suffix "fffffff-lacework-result.json"
               let noSuffixName = laceworkFileName.substring(0, laceworkFileName.length - 28)
 
-              let targetLaceworkFileName = laceworkTargetResults.find(fileName => fileName.startsWith(noSuffixName))
+              let targetLaceworkFileName = laceworkTargetFileNames.find(fileName => fileName.startsWith(noSuffixName))
               let aquaFileName = aquaFileNames.find(fileName => fileName.startsWith(noSuffixName))
               let targetAquaFileName = aquaTargetFileNames.find(fileName => fileName.startsWith(noSuffixName))
 
