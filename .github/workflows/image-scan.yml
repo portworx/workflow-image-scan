@@ -542,7 +542,6 @@ jobs:
           retries: 3
           retry-exempt-status-codes: 400,401
           script: |
-            // Get the existing comments.
             const {data: comments} = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -553,7 +552,6 @@ jobs:
             const comment = ":heavy_check_mark: No vulnerabilities in this PR. :heavy_check_mark:"
 
             if (!lastBotComment || comment !== lastBotComment.body) {
-              // Add new comment.
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
@@ -575,11 +573,11 @@ jobs:
               return JSON.stringify(a) === JSON.stringify(b);
             } 
 
-            function onlyInLeft(left, right) {
+            function onlyInLeft(left, right, comparator) {
               return left
                       .filter(leftValue =>
                         !right.some(rightValue => 
-                          isSameVulnerability(JSON.stringify(leftValue), JSON.stringify(rightValue))));
+                          comparator(leftValue, rightValue)));
             }
 
             function removeDynamicValues(body) {
@@ -587,6 +585,32 @@ jobs:
               return body
                  .replace(/\]\(http[^)]+\)/gm, "](#)")
                  .replace(/(docker\.io\/[^ ]+)-\w{7}/gm, "$1-#######")
+            }
+
+            function getDiffComments(fileName, targetFileName, scannerName, newVulnerabilitiesBody, removedVulnerabilitiesBody) {
+              // artifacts are in a directory (with the same name in our case)
+              let file = fs.readFileSync(fileName + "/" + fileName, 'utf8');
+              let targetFile = fs.readFileSync(targetFileName + "/" + targetFileName, 'utf8');
+
+              // TODO deal with the case where the file is not found
+              const results = JSON.parse(file);
+              const targetResults = JSON.parse(targetFile);
+
+              if (targetResults.vulnerabilities.length == 0 && targetResults.vulnerabilities.length == 0) {
+                return { newVulnerabilitiesBody, removedVulnerabilitiesBody };
+              }
+
+              const newVulnerabilities = onlyInLeft(results.vulnerabilities, targetResults.vulnerabilities, isSameVulnerability);
+              const removedVulnerabilities = onlyInLeft(targetResults.vulnerabilities, results.vulnerabilities, isSameVulnerability);
+
+              if (newVulnerabilities.length > 0) {
+                newVulnerabilitiesBody = newVulnerabilitiesBody + newVulnerabilities.map(v => `\n| ${v.image} | ${scannerName} | ${v.severity} | ${v.package} | ${v.version} |`).join("")
+              }
+              if (removedVulnerabilities.length > 0) {
+                removedVulnerabilitiesBody = removedVulnerabilitiesBody + removedVulnerabilities.map(v => `\n| ${v.image} | ${scannerName} | ${v.severity} | ${v.package} | ${v.version} |`).join("")
+              }
+
+              return { newVulnerabilitiesBody, removedVulnerabilitiesBody };
             }
             
             // Get the existing comments.
@@ -596,40 +620,69 @@ jobs:
               issue_number: context.payload.number,
             })
 
-            
-
             // Read all scan results
             const fs = require('fs');
-            const aquaResults = fs.readdirSync('.').filter(file => file.endsWith('.aqua-result.json'));
-            const laceworkResults = fs.readdirSync('.').filter(file => file.endsWith('.lacework-result.json'));
-            const aquaTargetResults = fs.readdirSync('.').filter(file => file.endsWith('.aqua-result-target.json'));
-            const laceworkTargetResults = fs.readdirSync('.').filter(file => file.endsWith('.lacework-result-target.json'));
+            const aquaFileNames = fs.readdirSync('.').filter(file => file.endsWith('.aqua-result.json'));
+            const aquaTargetFileNames = fs.readdirSync('.').filter(file => file.endsWith('.aqua-result-target.json'));
+            const laceworkFileNames = fs.readdirSync('.').filter(file => file.endsWith('.lacework-result.json'));
+            const laceworkTargetFileNames = fs.readdirSync('.').filter(file => file.endsWith('.lacework-result-target.json'));
 
-            for (let i = 0; i < laceworkResults.length; i++) {
-              console.log("reading result")
-              console.log(laceworkResults[i])
-              console.log("reading target")
-              console.log(laceworkTargetResults[i])
-              
-              resultsFile = fs.readFileSync(laceworkResults[i] + "/" + laceworkResults[i], 'utf8');
-              targetResultsFile = fs.readFileSync(laceworkTargetResults[i] + "/" + laceworkTargetResults[i], 'utf8');
 
-              const results = JSON.parse(resultsFile);
-              const targetResults = JSON.parse(targetResultsFile);
+            let newVulnerabilitiesBody = "";
+            let removedVulnerabilitiesBody = "";
 
-              const newVulnerabilities = onlyInLeft(results.vulnerabilities, targetResults.vulnerabilities);
-              const removedVulnerabilities = onlyInLeft(targetResults.vulnerabilities, results.vulnerabilities);
-              const totalTargetVulnerabilities = targetResults.vulnerabilities.length;
+            for (let laceworkFileName of laceworkFileNames) {              
+              // 28 is the length of the suffix "fffffff-lacework-result.json"
+              let noSuffixName = laceworkFileName.substring(0, result.length - 28)
 
-              console.log(laceworkResults[i])
-              console.log(laceworkTargetResults[i])
-              console.log("whatever")
-              console.log(results.stats.Critical.total)
-              console.log("whatever")
-              console.log(results.stats.High.total)
-              console.log("whatever")
-              console.log(newVulnerabilities)
-              console.log("whatever")
-              console.log(removedVulnerabilities)
-              console.log("whatever")
+              let targetLaceworkFileName = laceworkTargetResults.find(fileName => fileName.startsWith(noSuffixName))
+              let aquaFileName = aquaFileNames.find(fileName => fileName.startsWith(noSuffixName))
+              let targetAquaFileName = aquaTargetFileNames.find(fileName => fileName.startsWith(noSuffixName))
+
+              { newVulnerabilitiesBody, removedVulnerabilitiesBody } = getDiffComments(laceworkFileName, targetLaceworkFileName, "Lacework", newVulnerabilitiesBody, removedVulnerabilitiesBody);
+              { newVulnerabilitiesBody, removedVulnerabilitiesBody } = getDiffComments(aquaFileName, targetAquaFileName, "Aqua", newVulnerabilitiesBody, removedVulnerabilitiesBody);
             }
+            
+            let comment = ""
+
+            if (newVulnerabilitiesBody.length > 0) {
+              comment = "New Vulnerabilities found in this PR. :x:"
+              comment="${comment}\n| Image | Scanner | Severity | Package | Version |"
+              comment="${comment}\n|---|---|---|---|---|"
+              comment="${comment}${newVulnerabilitiesBody}\n\n"
+            }
+
+            if (removedVulnerabilitiesBody.length > 0) {
+              comment = "Vulnerabilities removed in this PR. :heavy_check_mark:"
+              comment="${comment}\n| Image | Scanner | Severity | Package | Version |"
+              comment="${comment}\n|---|---|---|---|---|"
+              comment="${comment}${removedVulnerabilitiesBody}"
+            }
+
+            if (comment.length == 0) {
+              comment = "No vulnerabilities were added or removed by this PR."
+            }
+            else {
+              runUrl="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#user-content-scan-results"
+              comment="${comment}\n\n<sup>[Go to job summary for more details...]($runUrl)</sup>"
+
+              const {data: comments} = await github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.number,
+              })
+
+              const lastBotComment = comments.slice().reverse().find(c => c.user.login === 'github-actions[bot]')
+              if (!lastBotComment || removeDynamicValues(lastBotComment.body) !== removeDynamicValues(comment)) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.payload.number,
+                  body: comment
+                })
+              } else {
+                console.log("No changes, nothing to do.")
+              }
+            }
+
+
