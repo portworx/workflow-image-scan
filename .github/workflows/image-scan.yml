@@ -639,32 +639,35 @@ jobs:
               let aquaFileName = aquaFileNames.find(fileName => fileName.startsWith(noSuffixName))
               let targetAquaFileName = aquaTargetFileNames.find(fileName => fileName.startsWith(noSuffixName))
 
-              { newVulnerabilitiesBody, removedVulnerabilitiesBody } = getDiffComments(laceworkFileName, targetLaceworkFileName, "Lacework", newVulnerabilitiesBody, removedVulnerabilitiesBody);
-              { newVulnerabilitiesBody, removedVulnerabilitiesBody } = getDiffComments(aquaFileName, targetAquaFileName, "Aqua", newVulnerabilitiesBody, removedVulnerabilitiesBody);
+              let result = getDiffComments(laceworkFileName, targetLaceworkFileName, "Lacework", newVulnerabilitiesBody, removedVulnerabilitiesBody);
+              result = getDiffComments(aquaFileName, targetAquaFileName, "Aqua", result.newVulnerabilitiesBody, result.removedVulnerabilitiesBody);
+              
+              newVulnerabilitiesBody = result.newVulnerabilitiesBody;
+              removedVulnerabilitiesBody = result.removedVulnerabilitiesBody;
             }
             
             let comment = ""
 
             if (newVulnerabilitiesBody.length > 0) {
               comment = "New Vulnerabilities found in this PR. :x:"
-              comment="${comment}\n| Image | Scanner | Severity | Package | Version |"
-              comment="${comment}\n|---|---|---|---|---|"
-              comment="${comment}${newVulnerabilitiesBody}\n\n"
+              comment = "${comment}\n| Image | Scanner | Severity | Package | Version |"
+              comment = "${comment}\n|---|---|---|---|---|"
+              comment = "${comment}${newVulnerabilitiesBody}\n\n"
             }
 
             if (removedVulnerabilitiesBody.length > 0) {
               comment = "Vulnerabilities removed in this PR. :heavy_check_mark:"
-              comment="${comment}\n| Image | Scanner | Severity | Package | Version |"
-              comment="${comment}\n|---|---|---|---|---|"
-              comment="${comment}${removedVulnerabilitiesBody}"
+              comment = "${comment}\n| Image | Scanner | Severity | Package | Version |"
+              comment = "${comment}\n|---|---|---|---|---|"
+              comment = "${comment}${removedVulnerabilitiesBody}"
             }
 
             if (comment.length == 0) {
               comment = "No vulnerabilities were added or removed by this PR."
             }
             
-            runUrl="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#user-content-scan-results"
-            comment="${comment}\n\n<sup>[Go to job summary for more details...]($runUrl)</sup>"
+            runUrl = "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#user-content-scan-results"
+            comment = "${comment}\n\n<sup>[Go to job summary for more details...]($runUrl)</sup>"
 
             const {data: comments} = await github.rest.issues.listComments({
               owner: context.repo.owner,
