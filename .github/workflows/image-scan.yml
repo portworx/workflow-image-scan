@@ -210,69 +210,6 @@ jobs:
           echo "## <a name=\"scan-results\"></a>Aqua scan results" >> $GITHUB_STEP_SUMMARY
           summaryForScanner "$aquaResultFiles" "aqua"
 
-      - name: Build PR comment
-        if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize')
-        id: build-pr-comment
-        shell: bash
-        run: |
-          createPRCommentTable() {
-            comment="${comment}\n| Image | Critical | High | Medium | Low | Info | Policy failures |"
-            comment="${comment}\n|---|---|---|---|---|---|---|"
-          
-            for resultJSONFile in $1; do
-              image=$(jq -r '.image' $resultJSONFile)
-              cveC=$(jq -r '.stats.Critical.total' $resultJSONFile)
-              cveH=$(jq -r '.stats.High.total' $resultJSONFile)
-              cveM=$(jq -r '.stats.Medium.total' $resultJSONFile)
-              cveL=$(jq -r '.stats.Low.total' $resultJSONFile)
-              cveI=$(jq -r '.stats.Info.total' $resultJSONFile)
-              policyFailures=$(jq -r '.policyFailures | length' $resultJSONFile)
-              comment="${comment}\n| ${image} | $(_hln $cveC) | $(_hln $cveH) | $cveM | $cveL | $cveI |  $(_hln $policyFailures) |"
-            done
-          }
-          setStatusIcon(){
-            statusIcon=":green_circle:"
-            for resultJSONFile in $1; do
-              cveC=$(jq -r '.stats.Critical.total' $resultJSONFile)
-              cveH=$(jq -r '.stats.High.total' $resultJSONFile)
-              policyFailures=$(jq -r '.policyFailures | length' $resultJSONFile)
-              if [ $cveC -gt 0 ] || [ $cveH -gt 0 ] || [ $policyFailures -gt 0 ]; then
-                statusIcon=":red_circle:"
-                break
-              fi
-            done       
-          }
-          # Highlight number in table cell.
-          _hln() {
-            if [ ${1} -gt 0 ]; then
-              echo "**${1}** :x:"
-            else
-              echo "${1} :heavy_check_mark:"
-            fi
-          }   
-          lwResultFiles="$(find . -type f -name '*.lacework-result.json' | sort)"
-          
-          setStatusIcon "$lwResultFiles"
-          comment="### ${statusIcon}&nbsp; Lacework scan results:"
-          createPRCommentTable "$lwResultFiles"
-          
-          aquaResultFiles="$(find . -type f -name '*.aqua-result.json' | sort)"
-          
-          setStatusIcon "$aquaResultFiles"
-          comment="${comment}\n### ${statusIcon}&nbsp; Aqua scan results:"
-          createPRCommentTable "$aquaResultFiles"
-        
-          runUrl="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#user-content-scan-results"
-          comment="${comment}\n\n<sup>[Go to job summary for more details...]($runUrl)</sup>"
-          echo $comment > comment.txt
-
-      - name: Save the result as artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: comment
-          path: comment.txt
-          if-no-files-found: error
-
   setup-target:
     needs: [ setup, evaluate-results ]
     if: needs.evaluate-results.outputs.vulnerable == 1
@@ -462,69 +399,6 @@ jobs:
           summaryForScanner "$lwResultFiles" "lw"
           echo "## <a name=\"scan-results\"></a>Target branch Aqua scan results" >> $GITHUB_STEP_SUMMARY
           summaryForScanner "$aquaResultFiles" "aqua"
-
-      - name: Build PR comment
-        if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize')
-        id: build-pr-comment
-        shell: bash
-        run: |
-          createPRCommentTable() {
-            comment="${comment}\n| Image | Critical | High | Medium | Low | Info | Policy failures |"
-            comment="${comment}\n|---|---|---|---|---|---|---|"
-          
-            for resultJSONFile in $1; do
-              image=$(jq -r '.image' $resultJSONFile)
-              cveC=$(jq -r '.stats.Critical.total' $resultJSONFile)
-              cveH=$(jq -r '.stats.High.total' $resultJSONFile)
-              cveM=$(jq -r '.stats.Medium.total' $resultJSONFile)
-              cveL=$(jq -r '.stats.Low.total' $resultJSONFile)
-              cveI=$(jq -r '.stats.Info.total' $resultJSONFile)
-              policyFailures=$(jq -r '.policyFailures | length' $resultJSONFile)
-              comment="${comment}\n| ${image} | $(_hln $cveC) | $(_hln $cveH) | $cveM | $cveL | $cveI |  $(_hln $policyFailures) |"
-            done
-          }
-          setStatusIcon(){
-            statusIcon=":green_circle:"
-            for resultJSONFile in $1; do
-              cveC=$(jq -r '.stats.Critical.total' $resultJSONFile)
-              cveH=$(jq -r '.stats.High.total' $resultJSONFile)
-              policyFailures=$(jq -r '.policyFailures | length' $resultJSONFile)
-              if [ $cveC -gt 0 ] || [ $cveH -gt 0 ] || [ $policyFailures -gt 0 ]; then
-                statusIcon=":red_circle:"
-                break
-              fi
-            done       
-          }
-          # Highlight number in table cell.
-          _hln() {
-            if [ ${1} -gt 0 ]; then
-              echo "**${1}** :x:"
-            else
-              echo "${1} :heavy_check_mark:"
-            fi
-          }   
-          lwResultFiles="$(find . -type f -name '*.lacework-result-target.json' | sort)"
-          
-          setStatusIcon "$lwResultFiles"
-          comment="### ${statusIcon}&nbsp; Target branch Lacework scan results:"
-          createPRCommentTable "$lwResultFiles"
-          
-          aquaResultFiles="$(find . -type f -name '*.aqua-result-target.json' | sort)"
-          
-          setStatusIcon "$aquaResultFiles"
-          comment="${comment}\n### ${statusIcon}&nbsp; Target branch Aqua scan results:"
-          createPRCommentTable "$aquaResultFiles"
-        
-          runUrl="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#user-content-scan-results"
-          comment="${comment}\n\n<sup>[Go to job summary for more details...]($runUrl)</sup>"
-          echo $comment > comment-target.txt
-
-      - name: Save the result as artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: comment-target
-          path: comment-target.txt
-          if-no-files-found: error
             
   # Add a PR comment if the contents changed
   add-pr-comment:
@@ -570,7 +444,6 @@ jobs:
           retry-exempt-status-codes: 400,401
           script: |
             function isSameVulnerability(a, b) {
-              return Math.random() > 0.7;
               return JSON.stringify(a) === JSON.stringify(b);
             } 
 
