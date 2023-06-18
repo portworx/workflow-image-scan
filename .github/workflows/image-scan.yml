@@ -423,7 +423,7 @@ jobs:
             })
 
             const lastBotComment = comments.slice().reverse().find(c => c.user.login === 'github-actions[bot]')
-            const comment = ":heavy_check_mark: No vulnerabilities in this PR. :heavy_check_mark:"
+            const comment = ":white_check_mark: No critical/high-severity vulnerabilities detected. :white_check_mark:"
 
             if (!lastBotComment || comment !== lastBotComment.body) {
               await github.rest.issues.createComment({
@@ -478,10 +478,10 @@ jobs:
               const removedVulnerabilities = onlyInLeft(targetResults.vulnerabilities, results.vulnerabilities);
 
               if (newVulnerabilities.length > 0) {
-                newVulnerabilitiesBody = newVulnerabilitiesBody + newVulnerabilities.map(v => `\n${results.image} | [${v.vulnId}](${v.link}) | ${v.severity} | ${v.package} | ${v.currentVersion} |${scannerName} |`).join("")
+                newVulnerabilitiesBody = newVulnerabilitiesBody + newVulnerabilities.map(v => `\n${results.image} | ${v.link ? `[${v.vulnId}](${v.link})` : `${v.vulnId}`} | ${v.severity} | ${v.package} | ${v.currentVersion} |${scannerName} |`).join("")
               }
               if (removedVulnerabilities.length > 0) {
-                removedVulnerabilitiesBody = removedVulnerabilitiesBody + removedVulnerabilities.map(v => `\n${results.image} | [${v.vulnId}](${v.link}) | ${v.severity} | ${v.package} | ${v.currentVersion} | ${scannerName} |`).join("")
+                removedVulnerabilitiesBody = removedVulnerabilitiesBody + removedVulnerabilities.map(v => `\n${results.image} | ${v.link ? `[${v.vulnId}](${v.link})` : `${v.vulnId}`} | ${v.severity} | ${v.package} | ${v.currentVersion} | ${scannerName} |`).join("")
               }
 
               return { newVulnerabilitiesBody, removedVulnerabilitiesBody };
@@ -511,11 +511,11 @@ jobs:
               newVulnerabilitiesBody = result.newVulnerabilitiesBody;
               removedVulnerabilitiesBody = result.removedVulnerabilitiesBody;
             }
-            
+
             let comment = ""
 
             if (newVulnerabilitiesBody.length > 0) {
-              comment = `:exclamation::exclamation::exclamation:New vulnerabilities introduced by this PR:`
+              comment = `:exclamation::exclamation::exclamation:New critical/high-severity vulnerabilities introduced by this PR:`
               comment = `${comment}\n| Image | Vulnerability | Severity | Package | Version | Scanner |`
               comment = `${comment}\n|---|---|---|---|---|---|`
               comment = `${comment}${newVulnerabilitiesBody}`
@@ -525,18 +525,18 @@ jobs:
               if (comment.length != 0) {
                 comment = comment + `\n\n`
               }
-              comment = comment + `:white_check_mark::white_check_mark::white_check_mark:Vulnerabilities fixed by this PR:`
+              comment = comment + `:white_check_mark::white_check_mark::white_check_mark:Critical/high-severity vulnerabilities fixed by this PR:`
               comment = `${comment}\n| Image | Vulnerability | Severity | Package | Version | Scanner |`
               comment = `${comment}\n|---|---|---|---|---|---|`
               comment = `${comment}${removedVulnerabilitiesBody}`
             }
 
             if (comment.length == 0) {
-              comment = `No vulnerabilities were added nor fixed by this PR.`
+              comment = `No critical/high-severity vulnerabilities were added nor fixed by this PR.`
             }
             
             runUrl = `${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#user-content-scan-results`
-            comment = `${comment}\n\n<sup>[Go to job summary for more details...]($runUrl)</sup>`
+            comment = `${comment}\n\n<sup>[Go to job summary for more details...](${runUrl})</sup>`
 
             const {data: comments} = await github.rest.issues.listComments({
               owner: context.repo.owner,
