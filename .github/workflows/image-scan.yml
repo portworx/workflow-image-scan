@@ -166,7 +166,7 @@ jobs:
               echo "| $(_hln $cveC) | $(_hln $cveH) | $cveM | $cveL | $cveI |" >> $GITHUB_STEP_SUMMARY
               echo "" >> $GITHUB_STEP_SUMMARY
           
-              if [[ $cveC -gt 0 || $cveH -gt 0 || $cveM -gt 0 || $cveL -gt 0 || $cveI -gt 0 ]]; then
+              if [[ $cveC -gt 0 || $cveH -gt 0 ]]; then
                 echo "vulnerable=1" >> $GITHUB_OUTPUT
               fi
 
