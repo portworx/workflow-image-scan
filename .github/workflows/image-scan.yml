@@ -133,6 +133,57 @@ jobs:
       - name: Download all results from artifacts
         uses: actions/download-artifact@v3
 
+      - name: Create summary table
+        id: summary-table
+        shell: bash
+        run: |
+          createSummaryTable() {
+            echo "| Image | Critical | High | Medium | Low | Info | Policy failures |" >> $GITHUB_STEP_SUMMARY
+            echo "|---|---|---|---|---|---|---|" >> $GITHUB_STEP_SUMMARY
+          
+            for resultJSONFile in $1; do
+              image=$(jq -r '.image' $resultJSONFile)
+              cveC=$(jq -r '.stats.Critical.total' $resultJSONFile)
+              cveH=$(jq -r '.stats.High.total' $resultJSONFile)
+              cveM=$(jq -r '.stats.Medium.total' $resultJSONFile)
+              cveL=$(jq -r '.stats.Low.total' $resultJSONFile)
+              cveI=$(jq -r '.stats.Info.total' $resultJSONFile)
+              policyFailures=$(jq -r '.policyFailures | length' $resultJSONFile)
+              echo "| ${image} | $(_hln $cveC) | $(_hln $cveH) | $cveM | $cveL | $cveI |  $(_hln $policyFailures) |" >> $GITHUB_STEP_SUMMARY
+            done
+          }
+          setStatusIcon(){
+            statusIcon=":green_circle:"
+            for resultJSONFile in $1; do
+              cveC=$(jq -r '.stats.Critical.total' $resultJSONFile)
+              cveH=$(jq -r '.stats.High.total' $resultJSONFile)
+              policyFailures=$(jq -r '.policyFailures | length' $resultJSONFile)
+              if [ $cveC -gt 0 ] || [ $cveH -gt 0 ] || [ $policyFailures -gt 0 ]; then
+                statusIcon=":red_circle:"
+                break
+              fi
+            done       
+          }
+          # Highlight number in table cell.
+          _hln() {
+            if [ ${1} -gt 0 ]; then
+              echo "**${1}** :x:"
+            else
+              echo "${1} :heavy_check_mark:"
+            fi
+          }   
+          lwResultFiles="$(find . -type f -name '*.lacework-result.json' | sort)"
+          
+          setStatusIcon "$lwResultFiles"
+          echo "### ${statusIcon}&nbsp; Lacework scan results:" >> $GITHUB_STEP_SUMMARY
+          createSummaryTable "$lwResultFiles"
+          
+          aquaResultFiles="$(find . -type f -name '*.aqua-result.json' | sort)"
+          
+          setStatusIcon "$aquaResultFiles"
+          echo "### ${statusIcon}&nbsp; Aqua scan results:" >> $GITHUB_STEP_SUMMARY
+          createSummaryTable "$aquaResultFiles"
+
       - name: Build and set job summary
         id: job-summary
         shell: bash
@@ -443,7 +494,7 @@ jobs:
           retries: 3
           retry-exempt-status-codes: 400,401
           script: |
-            function isSameVulnerability(a, b) {
+            function isSameVulnerability(a, b) { 
               return JSON.stringify(a) === JSON.stringify(b);
             } 
 
@@ -555,3 +606,5 @@ jobs:
             } else {
               console.log("No changes, nothing to do.")
             }
+
+
