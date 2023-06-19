@@ -263,7 +263,7 @@ jobs:
 
   setup-target:
     needs: [ setup, evaluate-results ]
-    if: needs.evaluate-results.outputs.vulnerable == 1
+    if: needs.evaluate-results.outputs.vulnerable == 1  && !cancelled() && !contains(needs.*.result, 'failure') && github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize')
     runs-on: ubuntu-latest
     outputs:	
       imagesJson: ${{ steps.setup.outputs.imagesJson }}
@@ -454,7 +454,6 @@ jobs:
   # Add a PR comment if the contents changed
   add-pr-comment:
     needs: [ evaluate-results, evaluate-target-results ]
-    if: always() && !cancelled() && !contains(needs.*.result, 'failure') && github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize')
     runs-on: ubuntu-latest
     steps:
       - name: Download all artifacts
