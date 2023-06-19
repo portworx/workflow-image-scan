@@ -59,7 +59,7 @@ jobs:
     steps:
       - name: Call Lacework scan
         id: run-scan
-        uses: portworx/workflow-image-scan/.github/actions/action-lacework-scan@v2.1.7
+        uses: portworx/workflow-image-scan/.github/actions/action-lacework-scan@v2.2.0
         with:
           image: ${{ matrix.image }}
           docker-username: ${{ secrets.DOCKER_USERNAME }}
@@ -95,7 +95,7 @@ jobs:
     steps:
       - name: Call Aqua scan
         id: run-scan
-        uses: portworx/workflow-image-scan/.github/actions/action-aqua-scan@v2.1.7
+        uses: portworx/workflow-image-scan/.github/actions/action-aqua-scan@v2.2.0
         with:
           image: ${{ matrix.image }}
           docker-username: ${{ secrets.DOCKER_USERNAME }}
@@ -127,11 +127,259 @@ jobs:
   evaluate-results:
     needs: [ lacework-scan, aqua-scan ]
     runs-on: ubuntu-latest
+    outputs:	
+      vulnerable: ${{ steps.job-summary.outputs.vulnerable }}
+    steps:
+      - name: Download all results from artifacts
+        uses: actions/download-artifact@v3
+
+      - name: Create summary table
+        id: summary-table
+        shell: bash
+        run: |
+          createSummaryTable() {
+            echo "| Image | Critical | High | Medium | Low | Info | Policy failures |" >> $GITHUB_STEP_SUMMARY
+            echo "|---|---|---|---|---|---|---|" >> $GITHUB_STEP_SUMMARY
+          
+            for resultJSONFile in $1; do
+              image=$(jq -r '.image' $resultJSONFile)
+              cveC=$(jq -r '.stats.Critical.total' $resultJSONFile)
+              cveH=$(jq -r '.stats.High.total' $resultJSONFile)
+              cveM=$(jq -r '.stats.Medium.total' $resultJSONFile)
+              cveL=$(jq -r '.stats.Low.total' $resultJSONFile)
+              cveI=$(jq -r '.stats.Info.total' $resultJSONFile)
+              policyFailures=$(jq -r '.policyFailures | length' $resultJSONFile)
+              echo "| ${image} | $(_hln $cveC) | $(_hln $cveH) | $cveM | $cveL | $cveI |  $(_hln $policyFailures) |" >> $GITHUB_STEP_SUMMARY
+            done
+          }
+          setStatusIcon(){
+            statusIcon=":green_circle:"
+            for resultJSONFile in $1; do
+              cveC=$(jq -r '.stats.Critical.total' $resultJSONFile)
+              cveH=$(jq -r '.stats.High.total' $resultJSONFile)
+              policyFailures=$(jq -r '.policyFailures | length' $resultJSONFile)
+              if [ $cveC -gt 0 ] || [ $cveH -gt 0 ] || [ $policyFailures -gt 0 ]; then
+                statusIcon=":red_circle:"
+                break
+              fi
+            done       
+          }
+          # Highlight number in table cell.
+          _hln() {
+            if [ ${1} -gt 0 ]; then
+              echo "**${1}** :x:"
+            else
+              echo "${1} :heavy_check_mark:"
+            fi
+          }   
+          lwResultFiles="$(find . -type f -name '*.lacework-result.json' | sort)"
+          
+          setStatusIcon "$lwResultFiles"
+          echo "### ${statusIcon}&nbsp; Lacework scan results:" >> $GITHUB_STEP_SUMMARY
+          createSummaryTable "$lwResultFiles"
+          
+          aquaResultFiles="$(find . -type f -name '*.aqua-result.json' | sort)"
+          
+          setStatusIcon "$aquaResultFiles"
+          echo "### ${statusIcon}&nbsp; Aqua scan results:" >> $GITHUB_STEP_SUMMARY
+          createSummaryTable "$aquaResultFiles"
+
+      - name: Build and set job summary
+        id: job-summary
+        shell: bash
+        run: |
+          # Highlight number in table cell.
+          _hln() {
+            if [ ${1} -gt 0 ]; then
+              echo "**${1}** :x:"
+            else
+              echo "${1} :heavy_check_mark:"
+            fi
+          }
+          _jq() {
+            echo $row | jq -r ${1}
+          }
+          summaryForScanner() {
+            for resultJSONFile in $1; do
+              image=$(jq -r '.image' $resultJSONFile)
+              detailedArtifactName=$(echo $image | sed 's/[^a-zA-Z0-9.-]/-/g')-$2-scan-detailed-result.json
+              cveC=$(jq -r '.stats.Critical.total' $resultJSONFile)
+              cveH=$(jq -r '.stats.High.total' $resultJSONFile)
+              cveM=$(jq -r '.stats.Medium.total' $resultJSONFile)
+              cveL=$(jq -r '.stats.Low.total' $resultJSONFile)
+              cveI=$(jq -r '.stats.Info.total' $resultJSONFile)
+          
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "### $image" >> $GITHUB_STEP_SUMMARY
+              echo "###### Detailed scan result was stored as an artifact named: \`"$detailedArtifactName"\`" >> $GITHUB_STEP_SUMMARY
+              echo "| Critical | High | Medium | Low | Info |" >> $GITHUB_STEP_SUMMARY
+              echo "|---|---|---|---|---|" >> $GITHUB_STEP_SUMMARY
+              echo "| $(_hln $cveC) | $(_hln $cveH) | $cveM | $cveL | $cveI |" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+          
+              if [[ $cveC -gt 0 || $cveH -gt 0 ]]; then
+                echo "vulnerable=1" >> $GITHUB_OUTPUT
+              fi
+
+              # Print Vulnerability table (if not empty).
+              cveCount=$(jq -r '.vulnerabilities | length' $resultJSONFile)
+              if [ $cveCount -gt 0 ]; then
+                if [ "$2" = "aqua" ]; then
+                  echo "|Vulnerability|Severity|Package|Current version|Path|Fix version|" >> $GITHUB_STEP_SUMMARY
+                  echo "|---|---|---|---|---|---|" >> $GITHUB_STEP_SUMMARY
+                  for row in $(jq -r '.vulnerabilities[] | @base64' $resultJSONFile); do
+                    row=$(echo ${row} | base64 --decode)
+                    echo "| [$(_jq '.vulnId')]($(_jq '.link')) | $(_jq '.severity') | $(_jq '.package') | $(_jq '.currentVersion') | $(_jq '.path') | $(_jq '.fixVersion') |" >> $GITHUB_STEP_SUMMARY
+                  done
+                else
+                  echo "|Vulnerability|Severity|Package|Current version| Path |Fix version|Status|" >> $GITHUB_STEP_SUMMARY
+                  echo "|---|---|---|---|---|---|---|" >> $GITHUB_STEP_SUMMARY
+                  for row in $(jq -r '.vulnerabilities[] | @base64' $resultJSONFile); do
+                  row=$(echo ${row} | base64 --decode)
+                  echo "| [$(_jq '.vulnId')]($(_jq '.link')) | $(_jq '.severity') | $(_jq '.package') | $(_jq '.currentVersion') | $(_jq '.path') | $(_jq '.fixVersion') | $(_jq '.status') |" >> $GITHUB_STEP_SUMMARY
+                  done
+                fi
+              fi
+              policyFailureCount=$(jq -r '.policyFailures | length' $resultJSONFile)
+              if [ $policyFailureCount -gt 0 ]; then
+                echo "#### Policy failures" >> $GITHUB_STEP_SUMMARY
+                echo "|Policy Id| Policy Name |Blocking|" >> $GITHUB_STEP_SUMMARY
+                echo "|---|---|---|" >> $GITHUB_STEP_SUMMARY
+                for row in $(jq -r '.policyFailures[] | @base64' $resultJSONFile); do
+                  row=$(echo ${row} | base64 --decode)
+                  blocking=$(_jq '.blocking')
+                  blockingSign=$(if [ $blocking = "Yes" ]; then echo ":x:"; fi) 
+                  echo "| $(_jq '.policyId') | $(_jq '.policyName') | $blocking $blockingSign |" >> $GITHUB_STEP_SUMMARY
+                done
+              fi
+            done
+          }
+          lwResultFiles="$(find . -type f -name '*.lacework-result.json' | sort)"
+          aquaResultFiles="$(find . -type f -name '*.aqua-result.json' | sort)"
+          echo "## <a name=\"scan-results\"></a>Lacework scan results" >> $GITHUB_STEP_SUMMARY
+          summaryForScanner "$lwResultFiles" "lw"
+          echo "## <a name=\"scan-results\"></a>Aqua scan results" >> $GITHUB_STEP_SUMMARY
+          summaryForScanner "$aquaResultFiles" "aqua"
+
+  setup-target:
+    needs: [ setup, evaluate-results ]
+    if: needs.evaluate-results.outputs.vulnerable == 1  && !cancelled() && !contains(needs.*.result, 'failure') && github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize')
+    runs-on: ubuntu-latest
+    outputs:	
+      imagesJson: ${{ steps.setup.outputs.imagesJson }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+
+      - name: Get latest commit hash
+        id: hash
+        run: |
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          echo "SHORT_SHA=$(git rev-parse --short=7 HEAD)" >> $GITHUB_OUTPUT
+
+      - id: setup
+        run: |
+          imagesJson=${{needs.setup.outputs.imagesJson}}       
+
+          IFS=',' read -ra images <<< "${imagesJson:1:-1}"
+          for i in "${!images[@]}"; do
+            images[$i]="${images[$i]::-7}${{steps.hash.outputs.SHORT_SHA}}"
+          done
+          
+          updatedImagesJson="$(printf "\"%s\"," "${images[@]}")"
+          updatedImagesJson="[${updatedImagesJson%,}]"
+
+          echo "imagesJson=$updatedImagesJson" >> $GITHUB_OUTPUT
+
+  # Run Lacework scan for all images.
+  lacework-scan-target:
+    needs: [ setup-target, evaluate-results ]
+    if: needs.evaluate-results.outputs.vulnerable == 1
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 4
+      matrix:
+        image: ${{fromJson(needs.setup-target.outputs.imagesJson)}}
+    steps:
+      - name: Call Lacework scan
+        id: run-scan
+        uses: portworx/workflow-image-scan/.github/actions/action-lacework-scan@v2.2.0
+        with:
+          image: ${{ matrix.image }}
+          docker-username: ${{ secrets.DOCKER_USERNAME }}
+          docker-password: ${{ secrets.DOCKER_PASSWORD }}
+          lw-account-name: ${{ secrets.LW_ACCOUNT_NAME }}
+          lw-access-token: ${{ secrets.LW_ACCESS_TOKEN }}
+        env:
+          ACTIONS_STEP_DEBUG: ${{ secrets.ACTIONS_STEP_DEBUG }}
+
+      - name: Prepare the result for saving
+        id: prepare-save
+        run: |
+          safeImageId=$(echo "${{ matrix.image }}" | sed 's/[^a-zA-Z0-9.-]/-/g')
+          fileName=${safeImageId}.lacework-result-target.json
+          echo '${{ steps.run-scan.outputs.result-json }}' > $fileName
+          echo "file-name=$fileName" >> $GITHUB_OUTPUT
+
+      - name: Save the result as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ steps.prepare-save.outputs.file-name }}
+          path: ${{ steps.prepare-save.outputs.file-name }}
+          if-no-files-found: error
+
+  # Run Aqua scan for all images.
+  aqua-scan-target:
+    needs: [ setup-target, evaluate-results ]
+    if: needs.evaluate-results.outputs.vulnerable == 1
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 4
+      matrix:
+        image: ${{fromJson(needs.setup-target.outputs.imagesJson)}}
+    steps:
+      - name: Call Aqua scan
+        id: run-scan
+        uses: portworx/workflow-image-scan/.github/actions/action-aqua-scan@v2.2.0
+        with:
+          image: ${{ matrix.image }}
+          docker-username: ${{ secrets.DOCKER_USERNAME }}
+          docker-password: ${{ secrets.DOCKER_PASSWORD }}
+          aqua-account-name: ${{ secrets.AQUA_ACCOUNT_NAME }}
+          aqua-account-password: ${{ secrets.AQUA_ACCOUNT_PASS }}
+          aqua-access-token: ${{ secrets.AQUA_ACCESS_TOKEN }}
+          aquasec-server-url: ${{ secrets.AQUASEC_SERVER_URL }}
+          aqua-image: ${{ secrets.AQUA_IMAGE }}
+        env:
+          ACTIONS_STEP_DEBUG: ${{ secrets.ACTIONS_STEP_DEBUG }}
+
+      - name: Prepare the result for saving
+        id: prepare-save
+        run: |
+          safeImageId=$(echo "${{ matrix.image }}" | sed 's/[^a-zA-Z0-9.-]/-/g')
+          fileName=${safeImageId}.aqua-result-target.json
+          echo '${{ steps.run-scan.outputs.result-json }}' > $fileName
+          echo "file-name=$fileName" >> $GITHUB_OUTPUT
+
+      - name: Save the result as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ steps.prepare-save.outputs.file-name }}
+          path: ${{ steps.prepare-save.outputs.file-name }}
+          if-no-files-found: error
+
+  # Evaluate scan results for the target branch.
+  evaluate-target-results:
+    needs: [ lacework-scan-target, aqua-scan-target ]
+    runs-on: ubuntu-latest
     steps:
       - name: Download all results from artifacts
         uses: actions/download-artifact@v3
 
       - name: Build and set job summary
+        id: job-summary
         shell: bash
         run: |
           # Highlight number in table cell.
@@ -196,106 +444,167 @@ jobs:
               fi
             done
           }
-          lwResultFiles="$(find . -type f -name '*.lacework-result.json' | sort)"
-          aquaResultFiles="$(find . -type f -name '*.aqua-result.json' | sort)"
-          echo "## <a name=\"scan-results\"></a>Lacework scan results" >> $GITHUB_STEP_SUMMARY
+          lwResultFiles="$(find . -type f -name '*.lacework-result-target.json' | sort)"
+          aquaResultFiles="$(find . -type f -name '*.aqua-result-target.json' | sort)"
+          echo "## <a name=\"scan-results\"></a>Target branch Lacework scan results" >> $GITHUB_STEP_SUMMARY
           summaryForScanner "$lwResultFiles" "lw"
-          echo "## <a name=\"scan-results\"></a>Aqua scan results" >> $GITHUB_STEP_SUMMARY
+          echo "## <a name=\"scan-results\"></a>Target branch Aqua scan results" >> $GITHUB_STEP_SUMMARY
           summaryForScanner "$aquaResultFiles" "aqua"
+            
+  # Add a PR comment if the contents changed
+  add-pr-comment:
+    needs: [ evaluate-results, evaluate-target-results ]
+    if: always() && !cancelled() && !contains(needs.*.result, 'failure') && github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
 
-      - name: Build PR comment
-        if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize')
-        id: build-pr-comment
-        shell: bash
-        run: |
-          createPRCommentTable() {
-            comment="${comment}\n| Image | Critical | High | Medium | Low | Info | Policy failures |"
-            comment="${comment}\n|---|---|---|---|---|---|---|"
-          
-            for resultJSONFile in $1; do
-              image=$(jq -r '.image' $resultJSONFile)
-              cveC=$(jq -r '.stats.Critical.total' $resultJSONFile)
-              cveH=$(jq -r '.stats.High.total' $resultJSONFile)
-              cveM=$(jq -r '.stats.Medium.total' $resultJSONFile)
-              cveL=$(jq -r '.stats.Low.total' $resultJSONFile)
-              cveI=$(jq -r '.stats.Info.total' $resultJSONFile)
-              policyFailures=$(jq -r '.policyFailures | length' $resultJSONFile)
-              comment="${comment}\n| ${image} | $(_hln $cveC) | $(_hln $cveH) | $cveM | $cveL | $cveI |  $(_hln $policyFailures) |"
-            done
-          }
-          setStatusIcon(){
-            statusIcon=":green_circle:"
-            for resultJSONFile in $1; do
-              cveC=$(jq -r '.stats.Critical.total' $resultJSONFile)
-              cveH=$(jq -r '.stats.High.total' $resultJSONFile)
-              policyFailures=$(jq -r '.policyFailures | length' $resultJSONFile)
-              if [ $cveC -gt 0 ] || [ $cveH -gt 0 ] || [ $policyFailures -gt 0 ]; then
-                statusIcon=":red_circle:"
-                break
-              fi
-            done       
-          }
-          # Highlight number in table cell.
-          _hln() {
-            if [ ${1} -gt 0 ]; then
-              echo "**${1}** :x:"
-            else
-              echo "${1} :heavy_check_mark:"
-            fi
-          }   
-          lwResultFiles="$(find . -type f -name '*.lacework-result.json' | sort)"
-          
-          setStatusIcon "$lwResultFiles"
-          comment="### ${statusIcon}&nbsp; Lacework scan results:"
-          createPRCommentTable "$lwResultFiles"
-          
-          aquaResultFiles="$(find . -type f -name '*.aqua-result.json' | sort)"
-          
-          setStatusIcon "$aquaResultFiles"
-          comment="${comment}\n### ${statusIcon}&nbsp; Aqua scan results:"
-          createPRCommentTable "$aquaResultFiles"
-        
-          runUrl="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#user-content-scan-results"
-          comment="${comment}\n\n<sup>[Go to job summary for more details...]($runUrl)</sup>"
-          
-          # Set multiline output.
-          echo 'comment<<EOF' >> $GITHUB_OUTPUT
-          echo -e "$comment" >> $GITHUB_OUTPUT
-          echo 'EOF' >> $GITHUB_OUTPUT
-
-      - name: Add PR comment (if content changed)
-        if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize')
+      - name: Add PR comment if not vulnerable
+        if: needs.evaluate-results.outputs.vulnerable != 1
         uses: actions/github-script@v6
         with:
           retries: 3
           retry-exempt-status-codes: 400,401
           script: |
+            const {data: comments} = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.number,
+            })
+
+            const lastBotComment = comments.slice().reverse().find(c => c.user.login === 'github-actions[bot]')
+            const comment = ":white_check_mark: No critical/high-severity vulnerabilities detected. :white_check_mark:"
+
+            if (!lastBotComment || comment !== lastBotComment.body) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.number,
+                body: comment
+              })
+            } else {
+              console.log("No changes, nothing to do.")
+            }
+
+      - name: Add PR comment if vulnerable
+        if: needs.evaluate-results.outputs.vulnerable == 1
+        uses: actions/github-script@v6
+        with:
+          retries: 3
+          retry-exempt-status-codes: 400,401
+          script: |
+            function isSameVulnerability(a, b) { 
+              return JSON.stringify(a) === JSON.stringify(b);
+            } 
+
+            function onlyInLeft(left, right) {
+              return left
+                      .filter(leftValue =>
+                        !right.some(rightValue => 
+                          isSameVulnerability(leftValue, rightValue)));
+            }
+
             function removeDynamicValues(body) {
               // remove links and dynamic image tag hashes
               return body
                  .replace(/\]\(http[^)]+\)/gm, "](#)")
                  .replace(/(docker\.io\/[^ ]+)-\w{7}/gm, "$1-#######")
             }
-            
-            // Get the existing comments.
+
+            function getDiffComments(fileName, targetFileName, scannerName, newVulnerabilitiesBody, removedVulnerabilitiesBody) {
+              // artifacts are in a directory (with the same name in our case)
+              let file = fs.readFileSync(fileName + "/" + fileName, 'utf8');
+              let targetFile = fs.readFileSync(targetFileName + "/" + targetFileName, 'utf8');
+
+              // TODO deal with the case where the file is not found
+              const results = JSON.parse(file);
+              const targetResults = JSON.parse(targetFile);
+
+              if (targetResults.vulnerabilities.length == 0 && targetResults.vulnerabilities.length == 0) {
+                return { newVulnerabilitiesBody, removedVulnerabilitiesBody };
+              }
+
+              const newVulnerabilities = onlyInLeft(results.vulnerabilities, targetResults.vulnerabilities);
+              const removedVulnerabilities = onlyInLeft(targetResults.vulnerabilities, results.vulnerabilities);
+
+              if (newVulnerabilities.length > 0) {
+                newVulnerabilitiesBody = newVulnerabilitiesBody + newVulnerabilities.map(v => `\n| ${results.image} | ${v.link ? `[${v.vulnId}](${v.link})` : `${v.vulnId}`} | ${v.severity} | ${v.package} | ${v.currentVersion} | ${scannerName} |`).join("")
+              }
+              if (removedVulnerabilities.length > 0) {
+                removedVulnerabilitiesBody = removedVulnerabilitiesBody + removedVulnerabilities.map(v => `\n| ${results.image} | ${v.link ? `[${v.vulnId}](${v.link})` : `${v.vulnId}`} | ${v.severity} | ${v.package} | ${v.currentVersion} | ${scannerName} |`).join("")
+              }
+
+              return { newVulnerabilitiesBody, removedVulnerabilitiesBody };
+            }
+
+            // Read all scan results
+            const fs = require('fs');
+            const aquaFileNames = fs.readdirSync('.').filter(file => file.endsWith('.aqua-result.json'));
+            const aquaTargetFileNames = fs.readdirSync('.').filter(file => file.endsWith('.aqua-result-target.json'));
+            const laceworkFileNames = fs.readdirSync('.').filter(file => file.endsWith('.lacework-result.json'));
+            const laceworkTargetFileNames = fs.readdirSync('.').filter(file => file.endsWith('.lacework-result-target.json'));
+
+            let newVulnerabilitiesBody = "";
+            let removedVulnerabilitiesBody = "";
+
+            for (let laceworkFileName of laceworkFileNames) {              
+              // 28 is the length of the suffix "fffffff-lacework-result.json"
+              let noSuffixName = laceworkFileName.substring(0, laceworkFileName.length - 28)
+
+              let targetLaceworkFileName = laceworkTargetFileNames.find(fileName => fileName.startsWith(noSuffixName))
+              let aquaFileName = aquaFileNames.find(fileName => fileName.startsWith(noSuffixName))
+              let targetAquaFileName = aquaTargetFileNames.find(fileName => fileName.startsWith(noSuffixName))
+
+              let result = getDiffComments(laceworkFileName, targetLaceworkFileName, "Lacework", newVulnerabilitiesBody, removedVulnerabilitiesBody);
+              result = getDiffComments(aquaFileName, targetAquaFileName, "Aqua", result.newVulnerabilitiesBody, result.removedVulnerabilitiesBody);
+
+              newVulnerabilitiesBody = result.newVulnerabilitiesBody;
+              removedVulnerabilitiesBody = result.removedVulnerabilitiesBody;
+            }
+
+            let comment = ""
+
+            if (newVulnerabilitiesBody.length > 0) {
+              comment = `:exclamation::exclamation::exclamation:New critical/high-severity vulnerabilities introduced by this PR:`
+              comment = `${comment}\n| Image | Vulnerability | Severity | Package | Version | Scanner |`
+              comment = `${comment}\n|---|---|---|---|---|---|`
+              comment = `${comment}${newVulnerabilitiesBody}`
+            }
+
+            if (removedVulnerabilitiesBody.length > 0) {
+              if (comment.length != 0) {
+                comment = comment + `\n\n`
+              }
+              comment = comment + `:white_check_mark::white_check_mark::white_check_mark:Critical/high-severity vulnerabilities fixed by this PR:`
+              comment = `${comment}\n| Image | Vulnerability | Severity | Package | Version | Scanner |`
+              comment = `${comment}\n|---|---|---|---|---|---|`
+              comment = `${comment}${removedVulnerabilitiesBody}`
+            }
+
+            if (comment.length == 0) {
+              comment = `No critical/high-severity vulnerabilities were added nor fixed by this PR.`
+            }
+
+            runUrl = `${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#user-content-scan-results`
+            comment = `${comment}\n\n<sup>[Go to job summary for more details...](${runUrl})</sup>`
+
             const {data: comments} = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.payload.number,
             })
-            
-            // Find last bot comment.
-            const lastBotComment = comments.slice().reverse().find(comment => comment.user.login === 'github-actions[bot]')
-            
-            const newCommentBody = `${{ steps.build-pr-comment.outputs.comment }}`
-            if (!lastBotComment || removeDynamicValues(newCommentBody) !== removeDynamicValues(lastBotComment.body)) {
-              // Add new comment.
+
+            const lastBotComment = comments.slice().reverse().find(c => c.user.login === 'github-actions[bot]')
+            if (!lastBotComment || removeDynamicValues(lastBotComment.body) !== removeDynamicValues(comment)) {
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: context.payload.number,
-                body: newCommentBody
+                body: comment
               })
             } else {
               console.log("No changes, nothing to do.")
             }
+
+
