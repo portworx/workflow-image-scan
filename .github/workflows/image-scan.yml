@@ -555,5 +555,3 @@ jobs:
             } else {
               console.log("No changes, nothing to do.")
             }
-
-
